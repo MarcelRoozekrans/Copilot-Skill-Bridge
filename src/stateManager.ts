@@ -73,3 +73,29 @@ export function removeSkillRecord(manifest: BridgeManifest, skillName: string): 
     const { [skillName]: _, ...remainingSkills } = manifest.skills;
     return { ...manifest, skills: remainingSkills };
 }
+
+export function isMcpServerImported(manifest: BridgeManifest, serverName: string): boolean {
+    return serverName in (manifest.mcpServers ?? {});
+}
+
+export function recordMcpImport(
+    manifest: BridgeManifest,
+    serverName: string,
+    source: string,
+): BridgeManifest {
+    return {
+        ...manifest,
+        mcpServers: {
+            ...(manifest.mcpServers ?? {}),
+            [serverName]: {
+                source,
+                importedAt: new Date().toISOString(),
+            },
+        },
+    };
+}
+
+export function removeMcpRecord(manifest: BridgeManifest, serverName: string): BridgeManifest {
+    const { [serverName]: _, ...remaining } = (manifest.mcpServers ?? {});
+    return { ...manifest, mcpServers: remaining };
+}

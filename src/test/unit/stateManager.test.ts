@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { createEmptyManifest, computeHash, isSkillImported, isSkillOutdated, recordImport, removeSkillRecord } from '../../stateManager';
+import { createEmptyManifest, computeHash, isSkillImported, isSkillOutdated, recordImport, removeSkillRecord, isMcpServerImported, recordMcpImport, removeMcpRecord } from '../../stateManager';
 import { BridgeManifest } from '../../types';
 
 describe('createEmptyManifest', () => {
@@ -124,5 +124,54 @@ describe('removeSkillRecord', () => {
         const updated = removeSkillRecord(m, 'brainstorming');
         assert.ok(m.skills['brainstorming']);
         assert.strictEqual(updated.skills['brainstorming'], undefined);
+    });
+});
+
+describe('isMcpServerImported', () => {
+    it('should return true if MCP server exists in manifest', () => {
+        const m = createEmptyManifest();
+        m.mcpServers = { 'context7': { source: 'superpowers@sp', importedAt: '2026-01-01' } };
+        assert.strictEqual(isMcpServerImported(m, 'context7'), true);
+    });
+
+    it('should return false for unknown MCP server', () => {
+        const m = createEmptyManifest();
+        assert.strictEqual(isMcpServerImported(m, 'unknown'), false);
+    });
+});
+
+describe('recordMcpImport', () => {
+    it('should add MCP server to manifest', () => {
+        const m = createEmptyManifest();
+        const updated = recordMcpImport(m, 'context7', 'superpowers@sp');
+        assert.ok(updated.mcpServers['context7']);
+        assert.strictEqual(updated.mcpServers['context7'].source, 'superpowers@sp');
+        assert.ok(updated.mcpServers['context7'].importedAt);
+    });
+
+    it('should not mutate original manifest', () => {
+        const m = createEmptyManifest();
+        const updated = recordMcpImport(m, 'context7', 'src');
+        assert.deepStrictEqual(m.mcpServers, {});
+        assert.ok(updated.mcpServers['context7']);
+    });
+});
+
+describe('removeMcpRecord', () => {
+    it('should remove MCP server from manifest', () => {
+        let m = createEmptyManifest();
+        m = recordMcpImport(m, 'context7', 'src');
+        m = recordMcpImport(m, 'playwright', 'src');
+        const updated = removeMcpRecord(m, 'context7');
+        assert.strictEqual(updated.mcpServers['context7'], undefined);
+        assert.ok(updated.mcpServers['playwright']);
+    });
+
+    it('should not mutate original manifest', () => {
+        let m = createEmptyManifest();
+        m = recordMcpImport(m, 'context7', 'src');
+        const updated = removeMcpRecord(m, 'context7');
+        assert.ok(m.mcpServers['context7']);
+        assert.strictEqual(updated.mcpServers['context7'], undefined);
     });
 });
