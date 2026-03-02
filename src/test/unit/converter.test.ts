@@ -80,12 +80,13 @@ describe('generateInstructionsFile', () => {
 });
 
 describe('generatePromptFile', () => {
-    it('should produce valid prompt markdown with frontmatter', () => {
-        const result = generatePromptFile('brainstorming', 'Creative work helper', 'Body content');
+    it('should produce a pointer to the instructions file', () => {
+        const result = generatePromptFile('brainstorming', 'Creative work helper');
         assert.ok(result.startsWith('---\n'));
         assert.ok(result.includes('name: brainstorming'));
         assert.ok(result.includes('agent: agent'));
-        assert.ok(result.includes('Body content'));
+        assert.ok(result.includes('.github/instructions/brainstorming.instructions.md'));
+        assert.ok(!result.includes('Body content'));
     });
 });
 

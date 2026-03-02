@@ -57,14 +57,14 @@ ${convertedBody}
 `;
 }
 
-export function generatePromptFile(name: string, description: string, convertedBody: string): string {
+export function generatePromptFile(name: string, description: string): string {
     return `---
 name: ${name}
 description: ${description}
 agent: agent
 ---
 
-${convertedBody}
+Follow the instructions in .github/instructions/${name}.instructions.md
 `;
 }
 

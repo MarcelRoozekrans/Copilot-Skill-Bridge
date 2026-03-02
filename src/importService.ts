@@ -56,7 +56,7 @@ export class ImportService {
 
         return {
             instructionsContent: generateInstructionsFile(skill.name, skill.description, convertedBody),
-            promptContent: generatePromptFile(skill.name, skill.description, convertedBody),
+            promptContent: generatePromptFile(skill.name, skill.description),
             registryEntry: generateRegistryEntry(skill.name, skill.description),
             originalContent: skill.content,
         };

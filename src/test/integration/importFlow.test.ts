@@ -24,8 +24,8 @@ describe('Import Flow Integration', () => {
         assert.ok(text.includes('Body content here'));
     });
 
-    it('should write prompt file to .github/prompts/', async () => {
-        const content = generatePromptFile('test-import', 'A test skill', 'Body content here');
+    it('should write prompt file as pointer to instructions', async () => {
+        const content = generatePromptFile('test-import', 'A test skill');
         await writePromptFile(workspaceUri, 'test-import', content);
 
         const fileUri = vscode.Uri.joinPath(workspaceUri, '.github', 'prompts', 'test-import.prompt.md');
@@ -33,6 +33,7 @@ describe('Import Flow Integration', () => {
         const text = Buffer.from(raw).toString('utf-8');
         assert.ok(text.includes('name: test-import'));
         assert.ok(text.includes('agent: agent'));
+        assert.ok(text.includes('.github/instructions/test-import.instructions.md'));
     });
 
     it('should track import in manifest', async () => {
