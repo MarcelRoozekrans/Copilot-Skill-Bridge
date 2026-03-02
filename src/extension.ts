@@ -51,6 +51,9 @@ export async function activate(context: vscode.ExtensionContext) {
             'copilotSkillBridge.checkForUpdates',
             'copilotSkillBridge.removeSkill',
             'copilotSkillBridge.rebuildRegistry',
+            'copilotSkillBridge.importMcpServer',
+            'copilotSkillBridge.importAllMcpServers',
+            'copilotSkillBridge.removeMcpServer',
         ];
         for (const cmd of workspaceCommands) {
             context.subscriptions.push(
@@ -110,6 +113,9 @@ export async function activate(context: vscode.ExtensionContext) {
             for (const skill of plugin.skills) {
                 await importService.importSkill(skill, outputFormats, generateRegistry);
             }
+            if (plugin.mcpServers?.length) {
+                await importService.importAllMcpServers(plugin.mcpServers);
+            }
             await refreshAll();
         }),
 
@@ -132,6 +138,32 @@ export async function activate(context: vscode.ExtensionContext) {
             });
             await updateCopilotInstructions(workspaceUri, entries);
             vscode.window.showInformationMessage('Skill registry rebuilt.');
+        }),
+
+        vscode.commands.registerCommand('copilotSkillBridge.importMcpServer', async (item?: SkillTreeItem) => {
+            if (item?.mcpServerInfo) {
+                await importService.importMcpServer(item.mcpServerInfo);
+                await refreshAll();
+            } else {
+                vscode.window.showWarningMessage('Select an MCP server from the Copilot Skill Bridge sidebar.');
+            }
+        }),
+
+        vscode.commands.registerCommand('copilotSkillBridge.importAllMcpServers', async (item?: SkillTreeItem) => {
+            const plugin = item?.pluginInfo;
+            if (!plugin?.mcpServers?.length) {
+                vscode.window.showWarningMessage('No MCP servers found for this plugin.');
+                return;
+            }
+            await importService.importAllMcpServers(plugin.mcpServers);
+            await refreshAll();
+        }),
+
+        vscode.commands.registerCommand('copilotSkillBridge.removeMcpServer', async (item?: SkillTreeItem) => {
+            if (item?.mcpServerInfo) {
+                await importService.removeMcpServer(item.mcpServerInfo.name);
+                await refreshAll();
+            }
         }),
     );
 

@@ -83,6 +83,21 @@
         "command": "copilotSkillBridge.login",
         "title": "Sign in to GitHub",
         "icon": "$(github)"
+      },
+      {
+        "command": "copilotSkillBridge.importMcpServer",
+        "title": "Import MCP Server",
+        "icon": "$(cloud-download)"
+      },
+      {
+        "command": "copilotSkillBridge.importAllMcpServers",
+        "title": "Import All MCP Servers",
+        "icon": "$(cloud-download)"
+      },
+      {
+        "command": "copilotSkillBridge.removeMcpServer",
+        "title": "Remove MCP Server",
+        "icon": "$(trash)"
       }
     ],
     "menus": {
@@ -100,6 +115,20 @@
         {
           "command": "copilotSkillBridge.importAllSkills",
           "when": "view == skillBridgeExplorer && viewItem == plugin"
+        },
+        {
+          "command": "copilotSkillBridge.importMcpServer",
+          "when": "view == skillBridgeExplorer && viewItem == mcpServer-available",
+          "group": "inline"
+        },
+        {
+          "command": "copilotSkillBridge.removeMcpServer",
+          "when": "view == skillBridgeExplorer && viewItem == mcpServer-synced",
+          "group": "inline"
+        },
+        {
+          "command": "copilotSkillBridge.importAllMcpServers",
+          "when": "view == skillBridgeExplorer && viewItem == mcpGroup"
         }
       ],
       "view/title": [
