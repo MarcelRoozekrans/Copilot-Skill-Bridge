@@ -1,0 +1,119 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0d1117"/>
+      <stop offset="100%" stop-color="#161b22"/>
+    </linearGradient>
+    <linearGradient id="bridgeGrad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#8b5cf6"/>
+      <stop offset="50%" stop-color="#6366f1"/>
+      <stop offset="100%" stop-color="#06b6d4"/>
+    </linearGradient>
+    <linearGradient id="cableGrad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#a78bfa"/>
+      <stop offset="50%" stop-color="#818cf8"/>
+      <stop offset="100%" stop-color="#22d3ee"/>
+    </linearGradient>
+    <linearGradient id="towerGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#c4b5fd"/>
+      <stop offset="100%" stop-color="#7c3aed"/>
+    </linearGradient>
+    <linearGradient id="towerGrad2" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#67e8f9"/>
+      <stop offset="100%" stop-color="#0891b2"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="softglow">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="256" height="256" rx="32" fill="url(#sky)"/>
+
+  <!-- Water reflection -->
+  <ellipse cx="128" cy="210" rx="100" ry="12" fill="#6366f1" opacity="0.08"/>
+  <ellipse cx="128" cy="210" rx="70" ry="8" fill="#06b6d4" opacity="0.06"/>
+
+  <!-- Bridge deck (main span) -->
+  <path d="M 20 148 Q 128 158 236 148" stroke="url(#bridgeGrad)" stroke-width="6" fill="none" stroke-linecap="round" filter="url(#glow)"/>
+  <!-- Bridge deck fill for solidity -->
+  <path d="M 20 148 Q 128 158 236 148 L 236 154 Q 128 164 20 154 Z" fill="url(#bridgeGrad)" opacity="0.4"/>
+
+  <!-- Left tower -->
+  <rect x="68" y="88" width="10" height="72" rx="3" fill="url(#towerGrad)" filter="url(#glow)"/>
+  <!-- Tower cap left -->
+  <rect x="65" y="84" width="16" height="8" rx="2" fill="#c4b5fd"/>
+
+  <!-- Right tower -->
+  <rect x="178" y="88" width="10" height="72" rx="3" fill="url(#towerGrad2)" filter="url(#glow)"/>
+  <!-- Tower cap right -->
+  <rect x="175" y="84" width="16" height="8" rx="2" fill="#67e8f9"/>
+
+  <!-- Main suspension cables (catenary curves) -->
+  <path d="M 30 105 Q 73 68 73 88" stroke="url(#cableGrad)" stroke-width="2.5" fill="none" opacity="0.9"/>
+  <path d="M 73 88 Q 128 120 183 88" stroke="url(#cableGrad)" stroke-width="2.5" fill="none" opacity="0.9"/>
+  <path d="M 183 88 Q 183 68 226 105" stroke="url(#cableGrad)" stroke-width="2.5" fill="none" opacity="0.9"/>
+
+  <!-- Vertical suspender cables from main cable to deck - left side -->
+  <line x1="50" y1="93" x2="50" y2="150" stroke="#a78bfa" stroke-width="1" opacity="0.5"/>
+  <line x1="60" y1="90" x2="60" y2="149" stroke="#a78bfa" stroke-width="1" opacity="0.5"/>
+  <line x1="90" y1="95" x2="90" y2="150" stroke="#a78bfa" stroke-width="1" opacity="0.5"/>
+  <line x1="100" y1="99" x2="100" y2="151" stroke="#818cf8" stroke-width="1" opacity="0.5"/>
+  <line x1="110" y1="104" x2="110" y2="152" stroke="#818cf8" stroke-width="1" opacity="0.5"/>
+  <line x1="120" y1="108" x2="120" y2="153" stroke="#818cf8" stroke-width="1" opacity="0.5"/>
+
+  <!-- Vertical suspender cables - right side -->
+  <line x1="136" y1="108" x2="136" y2="153" stroke="#818cf8" stroke-width="1" opacity="0.5"/>
+  <line x1="146" y1="104" x2="146" y2="152" stroke="#818cf8" stroke-width="1" opacity="0.5"/>
+  <line x1="156" y1="99" x2="156" y2="151" stroke="#22d3ee" stroke-width="1" opacity="0.5"/>
+  <line x1="166" y1="95" x2="166" y2="150" stroke="#22d3ee" stroke-width="1" opacity="0.5"/>
+  <line x1="196" y1="90" x2="196" y2="149" stroke="#22d3ee" stroke-width="1" opacity="0.5"/>
+  <line x1="206" y1="93" x2="206" y2="150" stroke="#22d3ee" stroke-width="1" opacity="0.5"/>
+
+  <!-- Left node cluster (Copilot side) - purple -->
+  <circle cx="32" cy="105" r="12" fill="#7c3aed" opacity="0.15"/>
+  <circle cx="32" cy="105" r="8" fill="#8b5cf6" opacity="0.3"/>
+  <!-- Copilot sparkle icon -->
+  <path d="M 32 98 L 33.5 102 L 37 103.5 L 33.5 105 L 32 109 L 30.5 105 L 27 103.5 L 30.5 102 Z" fill="#c4b5fd" filter="url(#glow)"/>
+  <circle cx="32" cy="103.5" r="1.2" fill="#e9d5ff"/>
+
+  <!-- Right node cluster (LLM side) - cyan -->
+  <circle cx="224" cy="105" r="12" fill="#0891b2" opacity="0.15"/>
+  <circle cx="224" cy="105" r="8" fill="#06b6d4" opacity="0.3"/>
+  <!-- Connected nodes icon -->
+  <circle cx="221" cy="101" r="2" fill="#67e8f9"/>
+  <circle cx="228" cy="101" r="2" fill="#67e8f9"/>
+  <circle cx="224" cy="108" r="2" fill="#67e8f9"/>
+  <line x1="221" y1="101" x2="228" y2="101" stroke="#67e8f9" stroke-width="0.8"/>
+  <line x1="221" y1="101" x2="224" y2="108" stroke="#67e8f9" stroke-width="0.8"/>
+  <line x1="228" y1="101" x2="224" y2="108" stroke="#67e8f9" stroke-width="0.8"/>
+
+  <!-- Data flow particles along the bridge deck -->
+  <circle cx="85" cy="149" r="2" fill="#a78bfa" opacity="0.8" filter="url(#glow)">
+    <animate attributeName="cx" values="40;216" dur="3s" repeatCount="indefinite"/>
+    <animate attributeName="cy" values="149;153;149" dur="3s" repeatCount="indefinite"/>
+    <animate attributeName="fill" values="#a78bfa;#818cf8;#22d3ee" dur="3s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="170" cy="151" r="1.5" fill="#22d3ee" opacity="0.6" filter="url(#glow)">
+    <animate attributeName="cx" values="216;40" dur="4s" repeatCount="indefinite"/>
+    <animate attributeName="cy" values="149;153;149" dur="4s" repeatCount="indefinite"/>
+    <animate attributeName="fill" values="#22d3ee;#818cf8;#a78bfa" dur="4s" repeatCount="indefinite"/>
+  </circle>
+
+  <!-- Text: SKILL BRIDGE -->
+  <text x="128" y="190" text-anchor="middle" font-family="'Segoe UI', system-ui, sans-serif" font-size="18" font-weight="700" letter-spacing="3" fill="url(#bridgeGrad)" filter="url(#glow)">SKILL BRIDGE</text>
+
+  <!-- Subtle subtitle -->
+  <text x="128" y="206" text-anchor="middle" font-family="'Segoe UI', system-ui, sans-serif" font-size="9" font-weight="400" letter-spacing="1.5" fill="#94a3b8" opacity="0.7">COPILOT</text>
+</svg>

@@ -37,7 +37,7 @@
         {
           "id": "copilot-skill-bridge",
           "title": "Copilot Skill Bridge",
-          "icon": "$(extensions)"
+          "icon": "media/sidebar-icon.svg"
         }
       ]
     },
