@@ -1,6 +1,7 @@
-import { SkillInfo, PluginInfo, PluginJson, MarketplaceJson } from './types';
+import { SkillInfo, PluginInfo, PluginJson, MarketplaceJson, McpServerInfo } from './types';
 import { parseSkillFrontmatter } from './parser';
 import { buildAuthHeaders, getGitHubToken } from './auth';
+import { parseMcpJson } from './localReader';
 
 export function buildGitHubApiUrl(repo: string, path: string, ref?: string): string {
     const base = `https://api.github.com/repos/${repo}/contents/${path}`;
@@ -103,11 +104,21 @@ export async function discoverRemotePlugins(repo: string): Promise<PluginInfo[]>
             }
         }
 
+        let mcpServers: McpServerInfo[] = [];
+        try {
+            const mcpPath = basePath + '.mcp.json';
+            const mcpContent = await fetchFileContent(repo, mcpPath);
+            mcpServers = parseMcpJson(mcpContent, entry.name, entry.version, repo);
+        } catch {
+            // No .mcp.json — that's fine
+        }
+
         plugins.push({
             name: entry.name,
             description: entry.description,
             version: entry.version,
             skills,
+            mcpServers: mcpServers.length > 0 ? mcpServers : undefined,
             marketplace: repo,
             source: 'remote',
         });
