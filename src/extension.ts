@@ -9,8 +9,56 @@ import { updateCopilotInstructions } from './fileWriter';
 let updateWatcher: UpdateWatcher | undefined;
 
 export async function activate(context: vscode.ExtensionContext) {
+    const noWorkspace = 'Open a folder to use Copilot Skill Bridge.';
+
+    // Commands that work without a workspace
+    context.subscriptions.push(
+        vscode.commands.registerCommand('copilotSkillBridge.login', async () => {
+            const { loginToGitHub } = await import('./auth');
+            const token = await loginToGitHub();
+            if (token) {
+                vscode.window.showInformationMessage('Signed in to GitHub successfully.');
+            } else {
+                vscode.window.showWarningMessage('GitHub sign-in was cancelled or failed.');
+            }
+        }),
+
+        vscode.commands.registerCommand('copilotSkillBridge.addMarketplace', async () => {
+            const config = vscode.workspace.getConfiguration('copilotSkillBridge');
+            const repo = await vscode.window.showInputBox({
+                prompt: 'Enter GitHub repo (owner/name)',
+                placeHolder: 'obra/superpowers',
+                validateInput: (value) => {
+                    return /^[\w.-]+\/[\w.-]+$/.test(value) ? null : 'Format: owner/repo-name';
+                },
+            });
+            if (repo) {
+                const current = config.get<string[]>('marketplaces', []);
+                if (!current.includes(repo)) {
+                    await config.update('marketplaces', [...current, repo], vscode.ConfigurationTarget.Global);
+                    vscode.window.showInformationMessage(`Added marketplace: ${repo}`);
+                }
+            }
+        }),
+    );
+
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
     if (!workspaceFolder) {
+        // Register remaining commands as no-ops that show a helpful message
+        const workspaceCommands = [
+            'copilotSkillBridge.importSkill',
+            'copilotSkillBridge.importAllSkills',
+            'copilotSkillBridge.checkForUpdates',
+            'copilotSkillBridge.removeSkill',
+            'copilotSkillBridge.rebuildRegistry',
+        ];
+        for (const cmd of workspaceCommands) {
+            context.subscriptions.push(
+                vscode.commands.registerCommand(cmd, () => {
+                    vscode.window.showWarningMessage(noWorkspace);
+                })
+            );
+        }
         return;
     }
 
@@ -42,7 +90,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
     await refreshAll();
 
-    // Register commands
+    // Register workspace-dependent commands
     context.subscriptions.push(
         vscode.commands.registerCommand('copilotSkillBridge.importSkill', async (item?: SkillTreeItem) => {
             if (item?.skillInfo) {
@@ -70,24 +118,6 @@ export async function activate(context: vscode.ExtensionContext) {
             vscode.window.showInformationMessage('Skill Bridge: Update check complete.');
         }),
 
-        vscode.commands.registerCommand('copilotSkillBridge.addMarketplace', async () => {
-            const repo = await vscode.window.showInputBox({
-                prompt: 'Enter GitHub repo (owner/name)',
-                placeHolder: 'obra/superpowers',
-                validateInput: (value) => {
-                    return /^[\w.-]+\/[\w.-]+$/.test(value) ? null : 'Format: owner/repo-name';
-                },
-            });
-            if (repo) {
-                const current = config.get<string[]>('marketplaces', []);
-                if (!current.includes(repo)) {
-                    await config.update('marketplaces', [...current, repo], vscode.ConfigurationTarget.Global);
-                    await refreshAll();
-                    vscode.window.showInformationMessage(`Added marketplace: ${repo}`);
-                }
-            }
-        }),
-
         vscode.commands.registerCommand('copilotSkillBridge.removeSkill', async (item?: SkillTreeItem) => {
             if (item?.skillInfo) {
                 await importService.removeSkill(item.skillInfo.name, generateRegistry);
@@ -102,17 +132,6 @@ export async function activate(context: vscode.ExtensionContext) {
             });
             await updateCopilotInstructions(workspaceUri, entries);
             vscode.window.showInformationMessage('Skill registry rebuilt.');
-        }),
-
-        vscode.commands.registerCommand('copilotSkillBridge.login', async () => {
-            const { loginToGitHub } = await import('./auth');
-            const token = await loginToGitHub();
-            if (token) {
-                vscode.window.showInformationMessage('Signed in to GitHub successfully.');
-                await refreshAll();
-            } else {
-                vscode.window.showWarningMessage('GitHub sign-in was cancelled or failed.');
-            }
         }),
     );
 
