@@ -4,9 +4,15 @@
   "description": "Bridge Claude Code marketplace skills into GitHub Copilot",
   "version": "0.1.0",
   "publisher": "copilot-skill-bridge",
-  "engines": { "vscode": "^1.85.0" },
-  "categories": ["Other"],
-  "activationEvents": ["onStartupFinished"],
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
   "main": "./out/extension.js",
   "contributes": {
     "viewsContainers": {
@@ -27,13 +33,40 @@
       ]
     },
     "commands": [
-      { "command": "copilotSkillBridge.importSkill", "title": "Import Skill", "icon": "$(cloud-download)" },
-      { "command": "copilotSkillBridge.importAllSkills", "title": "Import All Skills", "icon": "$(cloud-download)" },
-      { "command": "copilotSkillBridge.checkForUpdates", "title": "Check for Updates", "icon": "$(refresh)" },
-      { "command": "copilotSkillBridge.addMarketplace", "title": "Add Marketplace", "icon": "$(add)" },
-      { "command": "copilotSkillBridge.removeSkill", "title": "Remove Skill", "icon": "$(trash)" },
-      { "command": "copilotSkillBridge.rebuildRegistry", "title": "Rebuild Registry" },
-      { "command": "copilotSkillBridge.login", "title": "Sign in to GitHub", "icon": "$(github)" }
+      {
+        "command": "copilotSkillBridge.importSkill",
+        "title": "Import Skill",
+        "icon": "$(cloud-download)"
+      },
+      {
+        "command": "copilotSkillBridge.importAllSkills",
+        "title": "Import All Skills",
+        "icon": "$(cloud-download)"
+      },
+      {
+        "command": "copilotSkillBridge.checkForUpdates",
+        "title": "Check for Updates",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "copilotSkillBridge.addMarketplace",
+        "title": "Add Marketplace",
+        "icon": "$(add)"
+      },
+      {
+        "command": "copilotSkillBridge.removeSkill",
+        "title": "Remove Skill",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "copilotSkillBridge.rebuildRegistry",
+        "title": "Rebuild Registry"
+      },
+      {
+        "command": "copilotSkillBridge.login",
+        "title": "Sign in to GitHub",
+        "icon": "$(github)"
+      }
     ],
     "menus": {
       "view/item/context": [
@@ -78,8 +111,12 @@
         },
         "copilotSkillBridge.marketplaces": {
           "type": "array",
-          "items": { "type": "string" },
-          "default": ["obra/superpowers"],
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "obra/superpowers"
+          ],
           "description": "GitHub repos to fetch marketplace skills from"
         },
         "copilotSkillBridge.checkInterval": {
@@ -94,8 +131,17 @@
         },
         "copilotSkillBridge.outputFormats": {
           "type": "array",
-          "items": { "type": "string", "enum": ["instructions", "prompts"] },
-          "default": ["instructions", "prompts"],
+          "items": {
+            "type": "string",
+            "enum": [
+              "instructions",
+              "prompts"
+            ]
+          },
+          "default": [
+            "instructions",
+            "prompts"
+          ],
           "description": "Which Copilot file formats to generate"
         },
         "copilotSkillBridge.generateRegistry": {
@@ -111,15 +157,18 @@
     "watch": "tsc -watch -p ./",
     "build": "esbuild src/extension.ts --bundle --outfile=out/extension.js --external:vscode --format=cjs --platform=node --sourcemap",
     "test:unit": "mocha out/test/unit/**/*.test.js",
-    "test": "npm run test:unit",
+    "test:integration": "node out/test/integration/runTests.js",
+    "test": "npm run test:unit && npm run test:integration",
     "lint": "tsc --noEmit"
   },
   "devDependencies": {
+    "@types/glob": "^8.1.0",
     "@types/mocha": "^10.0.10",
     "@types/node": "^25.3.3",
     "@types/vscode": "^1.109.0",
     "@vscode/test-electron": "^2.5.2",
     "esbuild": "^0.27.3",
+    "glob": "^13.0.6",
     "mocha": "^11.7.5",
     "typescript": "^5.9.3"
   }

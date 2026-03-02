@@ -5,3 +5,6 @@ node_modules/**
 .gitignore
 tsconfig.json
 **/*.map
+docs/**
+test-workspace/**
+.mocharc.yml
