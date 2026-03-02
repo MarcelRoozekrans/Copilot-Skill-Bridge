@@ -178,9 +178,12 @@
     "test": "npm run test:unit && npm run test:integration",
     "lint": "tsc --noEmit",
     "package": "vsce package",
-    "publish": "vsce publish"
+    "publish": "vsce publish",
+    "prepare": "husky"
   },
   "devDependencies": {
+    "@commitlint/cli": "^20.4.2",
+    "@commitlint/config-conventional": "^20.4.2",
     "@types/glob": "^8.1.0",
     "@types/mocha": "^10.0.10",
     "@types/node": "^25.3.3",
@@ -189,6 +192,7 @@
     "@vscode/vsce": "^3.7.1",
     "esbuild": "^0.27.3",
     "glob": "^13.0.6",
+    "husky": "^9.1.7",
     "mocha": "^11.7.5",
     "typescript": "^5.9.3"
   }
