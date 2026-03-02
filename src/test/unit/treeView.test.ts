@@ -12,6 +12,106 @@ function makeManifest(overrides: Partial<BridgeManifest> = {}): BridgeManifest {
     };
 }
 
+function makePlugin(overrides: Partial<PluginInfo> = {}): PluginInfo {
+    return {
+        name: 'test-plugin',
+        description: 'test',
+        version: '1.0.0',
+        skills: [],
+        marketplace: 'test/repo',
+        source: 'local',
+        ...overrides,
+    };
+}
+
+describe('TreeView marketplace grouping', () => {
+    let provider: SkillBridgeTreeProvider;
+
+    beforeEach(() => {
+        provider = new SkillBridgeTreeProvider();
+    });
+
+    it('should show single plugin directly at root without marketplace wrapper', () => {
+        provider.setData([makePlugin({ marketplace: 'obra/superpowers' })], makeManifest());
+
+        const roots = provider.getChildren(undefined);
+        assert.strictEqual(roots.length, 1);
+        assert.strictEqual(roots[0].itemType, 'plugin');
+        assert.strictEqual(roots[0].label, 'test-plugin');
+    });
+
+    it('should group multiple plugins under a marketplace node', () => {
+        const plugins = [
+            makePlugin({ name: 'a11y-audit', marketplace: 'rohitg00/awesome-toolkit' }),
+            makePlugin({ name: 'api-tester', marketplace: 'rohitg00/awesome-toolkit' }),
+            makePlugin({ name: 'bug-detective', marketplace: 'rohitg00/awesome-toolkit' }),
+        ];
+        provider.setData(plugins, makeManifest());
+
+        const roots = provider.getChildren(undefined);
+        assert.strictEqual(roots.length, 1);
+        assert.strictEqual(roots[0].itemType, 'marketplace');
+        assert.strictEqual(roots[0].label, 'rohitg00/awesome-toolkit');
+        assert.strictEqual(roots[0].description, '3 plugins');
+    });
+
+    it('should show plugins under marketplace node', () => {
+        const plugins = [
+            makePlugin({ name: 'plugin-a', marketplace: 'user/repo' }),
+            makePlugin({ name: 'plugin-b', marketplace: 'user/repo' }),
+        ];
+        provider.setData(plugins, makeManifest());
+
+        const marketplace = provider.getChildren(undefined)[0];
+        const children = provider.getChildren(marketplace);
+        assert.strictEqual(children.length, 2);
+        assert.strictEqual(children[0].itemType, 'plugin');
+        assert.strictEqual(children[0].label, 'plugin-a');
+        assert.strictEqual(children[1].label, 'plugin-b');
+    });
+
+    it('should mix single-plugin repos and multi-plugin repos', () => {
+        const plugins = [
+            makePlugin({ name: 'superpowers', marketplace: 'obra/superpowers' }),
+            makePlugin({ name: 'a11y', marketplace: 'user/toolkit' }),
+            makePlugin({ name: 'api', marketplace: 'user/toolkit' }),
+        ];
+        provider.setData(plugins, makeManifest());
+
+        const roots = provider.getChildren(undefined);
+        assert.strictEqual(roots.length, 2);
+
+        const single = roots.find(r => r.itemType === 'plugin')!;
+        assert.strictEqual(single.label, 'superpowers');
+
+        const group = roots.find(r => r.itemType === 'marketplace')!;
+        assert.strictEqual(group.label, 'user/toolkit');
+    });
+
+    it('should set marketplace contextValue and repo icon', () => {
+        const plugins = [
+            makePlugin({ name: 'a', marketplace: 'user/repo' }),
+            makePlugin({ name: 'b', marketplace: 'user/repo' }),
+        ];
+        provider.setData(plugins, makeManifest());
+
+        const root = provider.getChildren(undefined)[0];
+        assert.strictEqual(root.contextValue, 'marketplace');
+        assert.strictEqual(root.marketplaceRepo, 'user/repo');
+    });
+
+    it('should store marketplaceRepo on marketplace nodes', () => {
+        const plugins = [
+            makePlugin({ name: 'x', marketplace: 'owner/name' }),
+            makePlugin({ name: 'y', marketplace: 'owner/name' }),
+        ];
+        provider.setData(plugins, makeManifest());
+
+        const root = provider.getChildren(undefined)[0];
+        assert.strictEqual(root.marketplaceRepo, 'owner/name');
+    });
+});
+
 describe('TreeView MCP support', () => {
     let provider: SkillBridgeTreeProvider;
 
@@ -20,17 +120,12 @@ describe('TreeView MCP support', () => {
     });
 
     it('should show mcpGroup node when plugin has MCP servers', () => {
-        const plugin: PluginInfo = {
-            name: 'test-plugin',
-            description: 'test',
-            version: '1.0.0',
-            skills: [],
+        const plugin = makePlugin({
             marketplace: 'test',
-            source: 'local',
             mcpServers: [
                 { name: 'context7', config: { command: 'npx', args: [] }, pluginName: 'test-plugin', pluginVersion: '1.0.0', marketplace: 'test' },
             ],
-        };
+        });
         provider.setData([plugin], makeManifest());
 
         const roots = provider.getChildren(undefined);
@@ -41,15 +136,7 @@ describe('TreeView MCP support', () => {
     });
 
     it('should NOT show mcpGroup when plugin has no MCP servers', () => {
-        const plugin: PluginInfo = {
-            name: 'no-mcp',
-            description: 'test',
-            version: '1.0.0',
-            skills: [],
-            marketplace: 'test',
-            source: 'local',
-            mcpServers: [],
-        };
+        const plugin = makePlugin({ name: 'no-mcp', marketplace: 'test', mcpServers: [] });
         provider.setData([plugin], makeManifest());
 
         const pluginItem = provider.getChildren(undefined)[0];
@@ -59,18 +146,13 @@ describe('TreeView MCP support', () => {
     });
 
     it('should show MCP server nodes under mcpGroup', () => {
-        const plugin: PluginInfo = {
-            name: 'test-plugin',
-            description: 'test',
-            version: '1.0.0',
-            skills: [],
+        const plugin = makePlugin({
             marketplace: 'test',
-            source: 'local',
             mcpServers: [
                 { name: 'server-a', config: { command: 'x' }, pluginName: 'test-plugin', pluginVersion: '1.0.0', marketplace: 'test' },
                 { name: 'server-b', config: { url: 'http://x' }, pluginName: 'test-plugin', pluginVersion: '1.0.0', marketplace: 'test' },
             ],
-        };
+        });
         provider.setData([plugin], makeManifest());
 
         const pluginItem = provider.getChildren(undefined)[0];
@@ -83,18 +165,13 @@ describe('TreeView MCP support', () => {
     });
 
     it('should show imported status for MCP servers', () => {
-        const plugin: PluginInfo = {
-            name: 'test-plugin',
-            description: 'test',
-            version: '1.0.0',
-            skills: [],
+        const plugin = makePlugin({
             marketplace: 'test',
-            source: 'local',
             mcpServers: [
                 { name: 'imported-srv', config: { command: 'x' }, pluginName: 'test-plugin', pluginVersion: '1.0.0', marketplace: 'test' },
                 { name: 'available-srv', config: { command: 'y' }, pluginName: 'test-plugin', pluginVersion: '1.0.0', marketplace: 'test' },
             ],
-        };
+        });
         const manifest = makeManifest({
             mcpServers: { 'imported-srv': { source: 'test@test', importedAt: '2026-01-01' } },
         });
@@ -112,15 +189,11 @@ describe('TreeView MCP support', () => {
 
     it('should attach mcpServerInfo to server nodes', () => {
         const serverInfo = { name: 'my-srv', config: { command: 'npx', args: ['-y', 'pkg'] }, pluginName: 'p', pluginVersion: '1', marketplace: 'm' };
-        const plugin: PluginInfo = {
+        const plugin = makePlugin({
             name: 'p',
-            description: 'test',
-            version: '1',
-            skills: [],
             marketplace: 'm',
-            source: 'local',
             mcpServers: [serverInfo],
-        };
+        });
         provider.setData([plugin], makeManifest());
 
         const pluginItem = provider.getChildren(undefined)[0];
