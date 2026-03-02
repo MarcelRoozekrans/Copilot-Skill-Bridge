@@ -54,7 +54,9 @@ export async function activate(context: vscode.ExtensionContext) {
 
             // Debounced search on input
             let debounceTimer: ReturnType<typeof setTimeout> | undefined;
-            quickPick.onDidChangeValue(value => {
+            const disposables: vscode.Disposable[] = [];
+
+            disposables.push(quickPick.onDidChangeValue(value => {
                 if (debounceTimer) { clearTimeout(debounceTimer); }
                 debounceTimer = setTimeout(async () => {
                     quickPick.busy = true;
@@ -66,11 +68,10 @@ export async function activate(context: vscode.ExtensionContext) {
                     }
                     quickPick.busy = false;
                 }, 400);
-            });
+            }));
 
-            quickPick.onDidAccept(async () => {
+            disposables.push(quickPick.onDidAccept(async () => {
                 const selected = quickPick.selectedItems[0];
-                quickPick.dispose();
                 if (debounceTimer) { clearTimeout(debounceTimer); }
 
                 let repo: string | undefined;
@@ -97,12 +98,15 @@ export async function activate(context: vscode.ExtensionContext) {
                         vscode.window.showInformationMessage(`Added marketplace: ${repo}`);
                     }
                 }
-            });
 
-            quickPick.onDidHide(() => {
-                quickPick.dispose();
+                quickPick.hide();
+            }));
+
+            disposables.push(quickPick.onDidHide(() => {
                 if (debounceTimer) { clearTimeout(debounceTimer); }
-            });
+                disposables.forEach(d => d.dispose());
+                quickPick.dispose();
+            }));
 
             quickPick.show();
         }),
