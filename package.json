@@ -1,0 +1,91 @@
+{
+  "name": "copilot-skill-bridge",
+  "displayName": "Copilot Skill Bridge",
+  "description": "Bridge Claude Code marketplace skills into GitHub Copilot",
+  "version": "0.1.0",
+  "publisher": "copilot-skill-bridge",
+  "engines": { "vscode": "^1.85.0" },
+  "categories": ["Other"],
+  "activationEvents": ["onStartupFinished"],
+  "main": "./out/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "copilot-skill-bridge",
+          "title": "Copilot Skill Bridge",
+          "icon": "$(extensions)"
+        }
+      ]
+    },
+    "views": {
+      "copilot-skill-bridge": [
+        {
+          "id": "skillBridgeExplorer",
+          "name": "Skills"
+        }
+      ]
+    },
+    "commands": [
+      { "command": "copilotSkillBridge.importSkill", "title": "Copilot Skill Bridge: Import Skill" },
+      { "command": "copilotSkillBridge.importAllSkills", "title": "Copilot Skill Bridge: Import All Skills" },
+      { "command": "copilotSkillBridge.checkForUpdates", "title": "Copilot Skill Bridge: Check for Updates" },
+      { "command": "copilotSkillBridge.addMarketplace", "title": "Copilot Skill Bridge: Add Marketplace" },
+      { "command": "copilotSkillBridge.removeSkill", "title": "Copilot Skill Bridge: Remove Skill" },
+      { "command": "copilotSkillBridge.rebuildRegistry", "title": "Copilot Skill Bridge: Rebuild Registry" }
+    ],
+    "configuration": {
+      "title": "Copilot Skill Bridge",
+      "properties": {
+        "copilotSkillBridge.claudeCachePath": {
+          "type": "string",
+          "default": "~/.claude/plugins/cache",
+          "description": "Path to Claude Code plugin cache directory"
+        },
+        "copilotSkillBridge.marketplaces": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": ["obra/superpowers"],
+          "description": "GitHub repos to fetch marketplace skills from"
+        },
+        "copilotSkillBridge.checkInterval": {
+          "type": "number",
+          "default": 86400,
+          "description": "Remote update check interval in seconds"
+        },
+        "copilotSkillBridge.autoAcceptUpdates": {
+          "type": "boolean",
+          "default": false,
+          "description": "Automatically accept skill updates without prompting"
+        },
+        "copilotSkillBridge.outputFormats": {
+          "type": "array",
+          "items": { "type": "string", "enum": ["instructions", "prompts"] },
+          "default": ["instructions", "prompts"],
+          "description": "Which Copilot file formats to generate"
+        },
+        "copilotSkillBridge.generateRegistry": {
+          "type": "boolean",
+          "default": true,
+          "description": "Add skill registry to copilot-instructions.md"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "build": "esbuild src/extension.ts --bundle --outfile=out/extension.js --external:vscode --format=cjs --platform=node --sourcemap",
+    "test": "mocha out/test/**/*.test.js",
+    "lint": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^25.3.3",
+    "@types/vscode": "^1.109.0",
+    "@vscode/test-electron": "^2.5.2",
+    "esbuild": "^0.27.3",
+    "mocha": "^11.7.5",
+    "typescript": "^5.9.3"
+  }
+}
