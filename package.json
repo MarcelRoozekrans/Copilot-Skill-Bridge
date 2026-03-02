@@ -27,13 +27,42 @@
       ]
     },
     "commands": [
-      { "command": "copilotSkillBridge.importSkill", "title": "Copilot Skill Bridge: Import Skill" },
-      { "command": "copilotSkillBridge.importAllSkills", "title": "Copilot Skill Bridge: Import All Skills" },
-      { "command": "copilotSkillBridge.checkForUpdates", "title": "Copilot Skill Bridge: Check for Updates" },
-      { "command": "copilotSkillBridge.addMarketplace", "title": "Copilot Skill Bridge: Add Marketplace" },
-      { "command": "copilotSkillBridge.removeSkill", "title": "Copilot Skill Bridge: Remove Skill" },
-      { "command": "copilotSkillBridge.rebuildRegistry", "title": "Copilot Skill Bridge: Rebuild Registry" }
+      { "command": "copilotSkillBridge.importSkill", "title": "Import Skill", "icon": "$(cloud-download)" },
+      { "command": "copilotSkillBridge.importAllSkills", "title": "Import All Skills", "icon": "$(cloud-download)" },
+      { "command": "copilotSkillBridge.checkForUpdates", "title": "Check for Updates", "icon": "$(refresh)" },
+      { "command": "copilotSkillBridge.addMarketplace", "title": "Add Marketplace", "icon": "$(add)" },
+      { "command": "copilotSkillBridge.removeSkill", "title": "Remove Skill", "icon": "$(trash)" },
+      { "command": "copilotSkillBridge.rebuildRegistry", "title": "Rebuild Registry" }
     ],
+    "menus": {
+      "view/item/context": [
+        {
+          "command": "copilotSkillBridge.importSkill",
+          "when": "view == skillBridgeExplorer && viewItem =~ /^skill-(available|update-available)/",
+          "group": "inline"
+        },
+        {
+          "command": "copilotSkillBridge.removeSkill",
+          "when": "view == skillBridgeExplorer && viewItem =~ /^skill-(synced|conflict)/",
+          "group": "inline"
+        },
+        {
+          "command": "copilotSkillBridge.importAllSkills",
+          "when": "view == skillBridgeExplorer && viewItem == plugin"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "copilotSkillBridge.checkForUpdates",
+          "when": "view == skillBridgeExplorer",
+          "group": "navigation"
+        },
+        {
+          "command": "copilotSkillBridge.addMarketplace",
+          "when": "view == skillBridgeExplorer"
+        }
+      ]
+    },
     "configuration": {
       "title": "Copilot Skill Bridge",
       "properties": {
