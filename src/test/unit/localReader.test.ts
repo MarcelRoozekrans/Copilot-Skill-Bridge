@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { resolveClaudeCachePath, parsePluginJson, buildSkillInfo } from '../localReader';
+import { resolveClaudeCachePath, parsePluginJson, buildSkillInfo } from '../../localReader';
 import * as os from 'os';
 import * as path from 'path';
 

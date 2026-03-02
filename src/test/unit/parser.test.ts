@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { parseSkillFrontmatter } from '../parser';
+import { parseSkillFrontmatter } from '../../parser';
 
 describe('parseSkillFrontmatter', () => {
     it('should parse YAML frontmatter from SKILL.md content', () => {

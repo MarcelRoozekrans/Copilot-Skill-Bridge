@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { buildGitHubApiUrl, parseGitHubContentsResponse, buildRemoteSkillInfo } from '../remoteReader';
+import { buildGitHubApiUrl, parseGitHubContentsResponse, buildRemoteSkillInfo } from '../../remoteReader';
 
 describe('buildGitHubApiUrl', () => {
     it('should build correct contents API URL', () => {

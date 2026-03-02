@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { convertSkillContent, generateInstructionsFile, generatePromptFile, generateRegistryEntry } from '../converter';
+import { convertSkillContent, generateInstructionsFile, generatePromptFile, generateRegistryEntry } from '../../converter';
 
 describe('convertSkillContent', () => {
     it('should replace TodoWrite references', () => {

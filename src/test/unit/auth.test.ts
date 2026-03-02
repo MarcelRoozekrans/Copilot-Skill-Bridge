@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { buildAuthHeaders, getGitHubToken } from '../auth';
+import { buildAuthHeaders, getGitHubToken } from '../../auth';
 
 describe('buildAuthHeaders', () => {
     it('should return base headers when no token provided', () => {

@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { buildRegistryTable, mergeRegistryIntoInstructions } from '../fileWriter';
+import { buildRegistryTable, mergeRegistryIntoInstructions } from '../../fileWriter';
 
 describe('buildRegistryTable', () => {
     it('should produce a markdown table from entries', () => {

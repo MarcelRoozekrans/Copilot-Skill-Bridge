@@ -110,7 +110,8 @@
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "build": "esbuild src/extension.ts --bundle --outfile=out/extension.js --external:vscode --format=cjs --platform=node --sourcemap",
-    "test": "mocha out/test/**/*.test.js",
+    "test:unit": "mocha out/test/unit/**/*.test.js",
+    "test": "npm run test:unit",
     "lint": "tsc --noEmit"
   },
   "devDependencies": {

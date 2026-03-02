@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { SkillStatus, SkillInfo, PluginInfo, MarketplaceInfo, SkillImportState, BridgeManifest } from '../types';
+import { SkillStatus, SkillInfo, PluginInfo, MarketplaceInfo, SkillImportState, BridgeManifest } from '../../types';
 
 describe('Types', () => {
     it('should create a valid SkillInfo', () => {

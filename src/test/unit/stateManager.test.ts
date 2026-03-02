@@ -1,6 +1,6 @@
 import * as assert from 'assert';
-import { createEmptyManifest, computeHash, isSkillImported, isSkillOutdated } from '../stateManager';
-import { BridgeManifest } from '../types';
+import { createEmptyManifest, computeHash, isSkillImported, isSkillOutdated } from '../../stateManager';
+import { BridgeManifest } from '../../types';
 
 describe('createEmptyManifest', () => {
     it('should return a valid empty manifest', () => {
