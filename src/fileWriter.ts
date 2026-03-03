@@ -6,21 +6,69 @@ interface RegistryEntry {
     file: string;
 }
 
+export interface EmbeddedSkillContent {
+    name: string;
+    convertedBody: string;
+}
+
 const REGISTRY_START = '<!-- copilot-skill-bridge:start -->';
 const REGISTRY_END = '<!-- copilot-skill-bridge:end -->';
 
-export function buildRegistryTable(entries: RegistryEntry[]): string {
-    if (entries.length === 0) {
+function embedStartMarker(skillName: string): string {
+    return `<!-- copilot-skill-bridge:embed:${skillName}:start -->`;
+}
+
+function embedEndMarker(skillName: string): string {
+    return `<!-- copilot-skill-bridge:embed:${skillName}:end -->`;
+}
+
+function toTitleCase(name: string): string {
+    return name
+        .split('-')
+        .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+        .join(' ');
+}
+
+export function buildEmbeddedSection(skillName: string, convertedBody: string): string {
+    return `${embedStartMarker(skillName)}\n## ${toTitleCase(skillName)}\n\n${convertedBody}\n${embedEndMarker(skillName)}`;
+}
+
+export function buildRegistryTable(entries: RegistryEntry[], embeddedSkills?: Set<string>): string {
+    const filtered = embeddedSkills
+        ? entries.filter(e => !embeddedSkills.has(e.name))
+        : entries;
+
+    if (filtered.length === 0 && (!embeddedSkills || embeddedSkills.size === 0)) {
         return `## Available Skills\n\nNo skills imported yet.\n`;
+    }
+
+    if (filtered.length === 0) {
+        return '';
     }
 
     const header = '## Available Skills\n\nWhen working on tasks, consult these skill files for guidance:\n\n';
     const tableHeader = '| Skill | Trigger | File |\n|-------|---------|------|\n';
-    const rows = entries
+    const rows = filtered
         .map(e => `| ${e.name} | ${e.trigger} | ${e.file} |`)
         .join('\n');
 
     return header + tableHeader + rows + '\n';
+}
+
+export function buildFullBridgeSection(
+    entries: RegistryEntry[],
+    embeddedSkills: EmbeddedSkillContent[]
+): string {
+    const embeddedNames = new Set(embeddedSkills.map(e => e.name));
+    const table = buildRegistryTable(entries, embeddedNames);
+    const embeds = embeddedSkills
+        .map(e => buildEmbeddedSection(e.name, e.convertedBody))
+        .join('\n\n');
+
+    if (table && embeds) {
+        return table + '\n' + embeds;
+    }
+    return table || embeds;
 }
 
 export function mergeRegistryIntoInstructions(existingContent: string, registrySection: string): string {
@@ -66,7 +114,8 @@ export async function writePromptFile(
 
 export async function updateCopilotInstructions(
     workspaceUri: vscode.Uri,
-    entries: RegistryEntry[]
+    entries: RegistryEntry[],
+    embeddedSkills?: EmbeddedSkillContent[]
 ): Promise<void> {
     const githubDir = vscode.Uri.joinPath(workspaceUri, '.github');
     await vscode.workspace.fs.createDirectory(githubDir);
@@ -80,8 +129,10 @@ export async function updateCopilotInstructions(
         // File doesn't exist yet
     }
 
-    const registry = buildRegistryTable(entries);
-    const merged = mergeRegistryIntoInstructions(existing, registry);
+    const section = embeddedSkills?.length
+        ? buildFullBridgeSection(entries, embeddedSkills)
+        : buildRegistryTable(entries);
+    const merged = mergeRegistryIntoInstructions(existing, section);
     await vscode.workspace.fs.writeFile(instructionsUri, Buffer.from(merged, 'utf-8'));
 }
 

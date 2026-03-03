@@ -2,8 +2,8 @@ import * as vscode from 'vscode';
 import { SkillInfo, PluginInfo, ConversionResult, McpServerInfo, BulkImportResult } from './types';
 import { convertSkillContent, generateInstructionsFile, generatePromptFile, generateFullPromptFile, generateRegistryEntry, OutputFormat } from './converter';
 import { parseSkillFrontmatter } from './parser';
-import { computeHash, loadManifest, saveManifest, recordImport, removeSkillRecord, recordMcpImport, removeMcpRecord, isMcpServerImported } from './stateManager';
-import { writeInstructionsFile, writePromptFile, updateCopilotInstructions, removeSkillFiles } from './fileWriter';
+import { computeHash, loadManifest, saveManifest, recordImport, removeSkillRecord, recordMcpImport, removeMcpRecord, isMcpServerImported, setSkillEmbedded, isSkillImported } from './stateManager';
+import { writeInstructionsFile, writePromptFile, updateCopilotInstructions, removeSkillFiles, EmbeddedSkillContent } from './fileWriter';
 import { discoverLocalPlugins } from './localReader';
 import { discoverRemotePlugins } from './remoteReader';
 import { convertMcpServers } from './mcpConverter';
@@ -228,11 +228,7 @@ export class ImportService {
         await saveManifest(this.workspaceUri, manifest);
 
         if (generateRegistry) {
-            const entries = Object.keys(manifest.skills).map(name => {
-                const skillData = this.findSkillByName(name);
-                return generateRegistryEntry(name, skillData?.description ?? '');
-            });
-            await updateCopilotInstructions(this.workspaceUri, entries);
+            await this.updateRegistry(manifest);
         }
     }
 
@@ -244,13 +240,58 @@ export class ImportService {
         await saveManifest(this.workspaceUri, manifest);
 
         if (generateRegistry) {
-            const entries = Object.keys(manifest.skills).map(name => {
-                return generateRegistryEntry(name, '');
-            });
-            await updateCopilotInstructions(this.workspaceUri, entries);
+            await this.updateRegistry(manifest);
         }
 
         vscode.window.showInformationMessage(`Removed skill: ${skillName}`);
+    }
+
+    async embedSkill(skillName: string): Promise<void> {
+        let manifest = await loadManifest(this.workspaceUri);
+        if (!isSkillImported(manifest, skillName)) {
+            vscode.window.showWarningMessage(`Skill "${skillName}" is not imported.`);
+            return;
+        }
+        manifest = setSkillEmbedded(manifest, skillName, true);
+        await saveManifest(this.workspaceUri, manifest);
+        await this.updateRegistry(manifest);
+        vscode.window.showInformationMessage(`Skill "${skillName}" embedded in copilot-instructions.md`);
+    }
+
+    async unembedSkill(skillName: string): Promise<void> {
+        let manifest = await loadManifest(this.workspaceUri);
+        manifest = setSkillEmbedded(manifest, skillName, false);
+        await saveManifest(this.workspaceUri, manifest);
+        await this.updateRegistry(manifest);
+        vscode.window.showInformationMessage(`Skill "${skillName}" unembedded from copilot-instructions.md`);
+    }
+
+    async rebuildRegistry(): Promise<void> {
+        const manifest = await loadManifest(this.workspaceUri);
+        await this.updateRegistry(manifest);
+    }
+
+    private async updateRegistry(manifest: import('./types').BridgeManifest): Promise<void> {
+        const entries = Object.keys(manifest.skills).map(name => {
+            const skillData = this.findSkillByName(name);
+            return generateRegistryEntry(name, skillData?.description ?? '');
+        });
+        const embeddedContents = this.getEmbeddedSkillContents(manifest);
+        await updateCopilotInstructions(this.workspaceUri, entries, embeddedContents);
+    }
+
+    private getEmbeddedSkillContents(manifest: import('./types').BridgeManifest): EmbeddedSkillContent[] {
+        const contents: EmbeddedSkillContent[] = [];
+        for (const [name, state] of Object.entries(manifest.skills)) {
+            if (state.embedded) {
+                const skillInfo = this.findSkillByName(name);
+                if (skillInfo) {
+                    const conversion = this.convertSkill(skillInfo);
+                    contents.push({ name, convertedBody: conversion.convertedBody });
+                }
+            }
+        }
+        return contents;
     }
 
     private async showPreview(skill: SkillInfo, conversion: ConversionResult): Promise<boolean> {
