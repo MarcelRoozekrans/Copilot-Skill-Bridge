@@ -27,15 +27,28 @@ const CONVERSION_RULES: Array<{ pattern: RegExp; replacement: string }> = [
     { pattern: /\bCLAUDE\.md\b/g, replacement: '.github/copilot-instructions.md' },
     { pattern: /~\/\.claude\/[\w/.-]*/g, replacement: '[local config]' },
 
-    // Skill cross-references: superpowers:skill-name → file link
-    { pattern: /superpowers:([\w-]+)/g, replacement: '.github/instructions/$1.instructions.md' },
+    // Jargon
+    { pattern: /\byour human partner\b/gi, replacement: 'the user' },
+    { pattern: /\bClaude Code-specific\b/gi, replacement: 'AI assistant-specific' },
+    { pattern: /\bClaude Code\b/gi, replacement: 'the AI assistant' },
 ];
 
-export function convertSkillContent(content: string): string {
+export type OutputFormat = 'instructions' | 'prompts';
+
+export function convertSkillContent(content: string, outputFormats?: OutputFormat[]): string {
     let result = content;
     for (const rule of CONVERSION_RULES) {
         result = result.replace(rule.pattern, rule.replacement);
     }
+
+    // Cross-reference rewriting: adapt to output format
+    const usePrompts = outputFormats && !outputFormats.includes('instructions') && outputFormats.includes('prompts');
+    if (usePrompts) {
+        result = result.replace(/superpowers:([\w-]+)/g, '.github/prompts/$1.prompt.md');
+    } else {
+        result = result.replace(/superpowers:([\w-]+)/g, '.github/instructions/$1.instructions.md');
+    }
+
     return result;
 }
 
