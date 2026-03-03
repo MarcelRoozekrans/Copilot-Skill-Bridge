@@ -3,7 +3,7 @@ import { SkillInfo, PluginInfo, SkillStatus, McpServerInfo } from './types';
 import { BridgeManifest } from './types';
 import { computeHash, isSkillImported, isSkillOutdated } from './stateManager';
 
-export type TreeItemType = 'plugin' | 'skill' | 'mcpGroup' | 'mcpServer';
+export type TreeItemType = 'marketplace' | 'plugin' | 'skill' | 'mcpGroup' | 'mcpServer';
 
 export class SkillTreeItem extends vscode.TreeItem {
     constructor(
@@ -14,10 +14,15 @@ export class SkillTreeItem extends vscode.TreeItem {
         public readonly status?: SkillStatus,
         collapsibleState?: vscode.TreeItemCollapsibleState,
         public readonly mcpServerInfo?: McpServerInfo,
+        public readonly marketplaceRepo?: string,
     ) {
         super(label, collapsibleState ?? vscode.TreeItemCollapsibleState.None);
 
-        if (itemType === 'plugin') {
+        if (itemType === 'marketplace') {
+            this.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
+            this.iconPath = new vscode.ThemeIcon('repo');
+            this.contextValue = 'marketplace';
+        } else if (itemType === 'plugin') {
             this.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
             this.iconPath = new vscode.ThemeIcon('package');
             const src = pluginInfo?.source === 'local' ? 'local' : pluginInfo?.source === 'remote' ? 'remote' : 'local + remote';
@@ -83,36 +88,18 @@ export class SkillBridgeTreeProvider implements vscode.TreeDataProvider<SkillTre
 
     getChildren(element?: SkillTreeItem): SkillTreeItem[] {
         if (!element) {
-            return this.plugins.map(p => new SkillTreeItem(p.name, 'plugin', p));
+            return this.getRootNodes();
+        }
+
+        if (element.itemType === 'marketplace') {
+            const repo = element.marketplaceRepo!;
+            return this.plugins
+                .filter(p => p.marketplace === repo)
+                .map(p => new SkillTreeItem(p.name, 'plugin', p));
         }
 
         if (element.itemType === 'plugin' && element.pluginInfo) {
-            const children: SkillTreeItem[] = [];
-
-            // Skills
-            for (const skill of element.pluginInfo.skills) {
-                const hash = computeHash(skill.content);
-                let status: SkillStatus;
-
-                if (!isSkillImported(this.manifest, skill.name)) {
-                    status = 'available';
-                } else if (isSkillOutdated(this.manifest, skill.name, hash)) {
-                    const state = this.manifest.skills[skill.name];
-                    status = state.locallyModified ? 'conflict' : 'update-available';
-                } else {
-                    status = 'synced';
-                }
-
-                children.push(new SkillTreeItem(skill.name, 'skill', element.pluginInfo, skill, status));
-            }
-
-            // MCP group
-            const mcpServers = element.pluginInfo.mcpServers ?? [];
-            if (mcpServers.length > 0) {
-                children.push(new SkillTreeItem('MCP Servers', 'mcpGroup', element.pluginInfo));
-            }
-
-            return children;
+            return this.getPluginChildren(element.pluginInfo);
         }
 
         if (element.itemType === 'mcpGroup' && element.pluginInfo) {
@@ -125,5 +112,55 @@ export class SkillBridgeTreeProvider implements vscode.TreeDataProvider<SkillTre
         }
 
         return [];
+    }
+
+    private getRootNodes(): SkillTreeItem[] {
+        const byMarketplace = new Map<string, PluginInfo[]>();
+        for (const p of this.plugins) {
+            const key = p.marketplace;
+            const list = byMarketplace.get(key) ?? [];
+            list.push(p);
+            byMarketplace.set(key, list);
+        }
+
+        const items: SkillTreeItem[] = [];
+        for (const [repo, plugins] of byMarketplace) {
+            if (plugins.length === 1) {
+                items.push(new SkillTreeItem(plugins[0].name, 'plugin', plugins[0]));
+            } else {
+                const node = new SkillTreeItem(repo, 'marketplace', undefined, undefined, undefined, undefined, undefined, repo);
+                node.description = `${plugins.length} plugins`;
+                items.push(node);
+            }
+        }
+
+        return items;
+    }
+
+    private getPluginChildren(plugin: PluginInfo): SkillTreeItem[] {
+        const children: SkillTreeItem[] = [];
+
+        for (const skill of plugin.skills) {
+            const hash = computeHash(skill.content);
+            let status: SkillStatus;
+
+            if (!isSkillImported(this.manifest, skill.name)) {
+                status = 'available';
+            } else if (isSkillOutdated(this.manifest, skill.name, hash)) {
+                const state = this.manifest.skills[skill.name];
+                status = state.locallyModified ? 'conflict' : 'update-available';
+            } else {
+                status = 'synced';
+            }
+
+            children.push(new SkillTreeItem(skill.name, 'skill', plugin, skill, status));
+        }
+
+        const mcpServers = plugin.mcpServers ?? [];
+        if (mcpServers.length > 0) {
+            children.push(new SkillTreeItem('MCP Servers', 'mcpGroup', plugin));
+        }
+
+        return children;
     }
 }
