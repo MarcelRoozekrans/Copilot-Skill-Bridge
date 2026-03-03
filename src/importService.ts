@@ -3,7 +3,7 @@ import { SkillInfo, PluginInfo, ConversionResult, McpServerInfo, BulkImportResul
 import { convertSkillContent, generateInstructionsFile, generatePromptFile, generateFullPromptFile, generateRegistryEntry, OutputFormat } from './converter';
 import { parseSkillFrontmatter } from './parser';
 import { computeHash, loadManifest, saveManifest, recordImport, removeSkillRecord, recordMcpImport, removeMcpRecord, isMcpServerImported, setSkillEmbedded, isSkillImported } from './stateManager';
-import { writeInstructionsFile, writePromptFile, updateCopilotInstructions, removeSkillFiles, EmbeddedSkillContent } from './fileWriter';
+import { writeInstructionsFile, writePromptFile, updateCopilotInstructions, removeSkillFiles } from './fileWriter';
 import { discoverLocalPlugins } from './localReader';
 import { discoverRemotePlugins } from './remoteReader';
 import { convertMcpServers } from './mcpConverter';
@@ -252,18 +252,29 @@ export class ImportService {
             vscode.window.showWarningMessage(`Skill "${skillName}" is not imported.`);
             return;
         }
+
+        const skillInfo = this.findSkillByName(skillName);
+        if (skillInfo) {
+            const conversion = this.convertSkill(skillInfo);
+            await writeInstructionsFile(this.workspaceUri, skillName, conversion.instructionsContent);
+        }
+
         manifest = setSkillEmbedded(manifest, skillName, true);
         await saveManifest(this.workspaceUri, manifest);
-        await this.updateRegistry(manifest);
-        vscode.window.showInformationMessage(`Skill "${skillName}" embedded in copilot-instructions.md`);
+        vscode.window.showInformationMessage(`Skill "${skillName}" is now always active via instructions file.`);
     }
 
     async unembedSkill(skillName: string): Promise<void> {
         let manifest = await loadManifest(this.workspaceUri);
+
+        const instructionsFile = vscode.Uri.joinPath(
+            this.workspaceUri, '.github', 'instructions', `${skillName}.instructions.md`
+        );
+        try { await vscode.workspace.fs.delete(instructionsFile); } catch { /* may not exist */ }
+
         manifest = setSkillEmbedded(manifest, skillName, false);
         await saveManifest(this.workspaceUri, manifest);
-        await this.updateRegistry(manifest);
-        vscode.window.showInformationMessage(`Skill "${skillName}" unembedded from copilot-instructions.md`);
+        vscode.window.showInformationMessage(`Skill "${skillName}" is no longer always active.`);
     }
 
     async rebuildRegistry(): Promise<void> {
@@ -276,22 +287,7 @@ export class ImportService {
             const skillData = this.findSkillByName(name);
             return generateRegistryEntry(name, skillData?.description ?? '');
         });
-        const embeddedContents = this.getEmbeddedSkillContents(manifest);
-        await updateCopilotInstructions(this.workspaceUri, entries, embeddedContents);
-    }
-
-    private getEmbeddedSkillContents(manifest: import('./types').BridgeManifest): EmbeddedSkillContent[] {
-        const contents: EmbeddedSkillContent[] = [];
-        for (const [name, state] of Object.entries(manifest.skills)) {
-            if (state.embedded) {
-                const skillInfo = this.findSkillByName(name);
-                if (skillInfo) {
-                    const conversion = this.convertSkill(skillInfo);
-                    contents.push({ name, convertedBody: conversion.convertedBody });
-                }
-            }
-        }
-        return contents;
+        await updateCopilotInstructions(this.workspaceUri, entries);
     }
 
     private async showPreview(skill: SkillInfo, conversion: ConversionResult): Promise<boolean> {

@@ -186,7 +186,7 @@ export class SkillBridgeTreeProvider implements vscode.TreeDataProvider<SkillTre
 
             if (status === 'synced' && this.manifest.skills[skill.name]?.embedded) {
                 item.iconPath = new vscode.ThemeIcon('pin', new vscode.ThemeColor('testing.iconPassed'));
-                item.description = 'embedded';
+                item.description = 'always active';
                 item.contextValue = 'skill-synced-embedded';
             }
 

@@ -403,7 +403,7 @@ describe('TreeView embedded skills', () => {
         provider = new SkillBridgeTreeProvider();
     });
 
-    it('should show pin icon and embedded description for embedded synced skills', () => {
+    it('should show pin icon and always active description for embedded synced skills', () => {
         const plugin = makePlugin({
             name: 'test-plugin',
             marketplace: 'test',
@@ -436,7 +436,7 @@ describe('TreeView embedded skills', () => {
         const children = provider.getChildren(pluginItem);
         const skill = children.find(c => c.itemType === 'skill');
         assert.strictEqual(skill!.contextValue, 'skill-synced-embedded');
-        assert.strictEqual(skill!.description, 'embedded');
+        assert.strictEqual(skill!.description, 'always active');
     });
 
     it('should show normal synced for non-embedded skills', () => {

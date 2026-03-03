@@ -1,6 +1,6 @@
 import * as assert from 'assert';
 import * as vscode from 'vscode';
-import { buildRegistryTable, mergeRegistryIntoInstructions, updateCopilotInstructions, writeInstructionsFile, writePromptFile, removeSkillFiles, buildEmbeddedSection, buildFullBridgeSection } from '../../fileWriter';
+import { buildRegistryTable, mergeRegistryIntoInstructions, updateCopilotInstructions, writeInstructionsFile, writePromptFile, removeSkillFiles } from '../../fileWriter';
 
 describe('buildRegistryTable', () => {
     it('should produce a markdown table from entries', () => {
@@ -141,76 +141,6 @@ describe('writePromptFile', () => {
         await writePromptFile(workspaceUri, 'brainstorming', 'test content');
         assert.ok(writtenPath!.includes('prompts'));
         assert.ok(writtenPath!.includes('brainstorming.prompt.md'));
-    });
-});
-
-describe('buildEmbeddedSection', () => {
-    it('should wrap content with sub-markers and title-case heading', () => {
-        const result = buildEmbeddedSection('long-term-memory', 'Use search_memory to find context.');
-        assert.ok(result.includes('<!-- copilot-skill-bridge:embed:long-term-memory:start -->'));
-        assert.ok(result.includes('<!-- copilot-skill-bridge:embed:long-term-memory:end -->'));
-        assert.ok(result.includes('## Long Term Memory'));
-        assert.ok(result.includes('Use search_memory to find context.'));
-    });
-});
-
-describe('buildFullBridgeSection', () => {
-    it('should combine registry table and embedded sections', () => {
-        const entries = [
-            { name: 'brainstorming', trigger: 'Creative work', file: '.github/instructions/brainstorming.instructions.md' },
-            { name: 'memory', trigger: 'Memory skill', file: '.github/instructions/memory.instructions.md' },
-        ];
-        const embedded = [{ name: 'memory', convertedBody: 'Memory content here.' }];
-        const result = buildFullBridgeSection(entries, embedded);
-
-        // Table should exclude embedded skill
-        assert.ok(result.includes('| brainstorming |'));
-        assert.ok(!result.includes('| memory |'));
-
-        // Embedded section should be present
-        assert.ok(result.includes('<!-- copilot-skill-bridge:embed:memory:start -->'));
-        assert.ok(result.includes('Memory content here.'));
-    });
-
-    it('should show only embedded content when all skills are embedded', () => {
-        const entries = [
-            { name: 'memory', trigger: 'Memory', file: '.github/instructions/memory.instructions.md' },
-        ];
-        const embedded = [{ name: 'memory', convertedBody: 'All embedded.' }];
-        const result = buildFullBridgeSection(entries, embedded);
-
-        assert.ok(!result.includes('| Skill |'));
-        assert.ok(result.includes('All embedded.'));
-    });
-
-    it('should show only table when no embedded skills', () => {
-        const entries = [
-            { name: 'tdd', trigger: 'Testing', file: '.github/instructions/tdd.instructions.md' },
-        ];
-        const result = buildFullBridgeSection(entries, []);
-
-        assert.ok(result.includes('| tdd |'));
-        assert.ok(!result.includes('copilot-skill-bridge:embed'));
-    });
-});
-
-describe('buildRegistryTable with embedded filter', () => {
-    it('should exclude embedded skills from the table', () => {
-        const entries = [
-            { name: 'a', trigger: 'A', file: 'a.md' },
-            { name: 'b', trigger: 'B', file: 'b.md' },
-        ];
-        const table = buildRegistryTable(entries, new Set(['b']));
-        assert.ok(table.includes('| a |'));
-        assert.ok(!table.includes('| b |'));
-    });
-
-    it('should return empty when all skills are embedded', () => {
-        const entries = [
-            { name: 'a', trigger: 'A', file: 'a.md' },
-        ];
-        const table = buildRegistryTable(entries, new Set(['a']));
-        assert.strictEqual(table, '');
     });
 });
 
