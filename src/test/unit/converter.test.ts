@@ -37,17 +37,13 @@ describe('convertSkillContent', () => {
         assert.ok(result.includes('ask the user'));
     });
 
-    it('should replace MCP memory tool references', () => {
+    it('should preserve MCP tool names as-is', () => {
         const input = 'Call search_memory with a query. Then save_memory to persist. Use update_memory to revise. Use delete_memory to remove.';
         const result = convertSkillContent(input);
-        assert.ok(!result.includes('search_memory'));
-        assert.ok(!result.includes('save_memory'));
-        assert.ok(!result.includes('update_memory'));
-        assert.ok(!result.includes('delete_memory'));
-        assert.ok(result.includes('search your memory'));
-        assert.ok(result.includes('save to memory'));
-        assert.ok(result.includes('update the memory'));
-        assert.ok(result.includes('delete the memory'));
+        assert.ok(result.includes('search_memory'));
+        assert.ok(result.includes('save_memory'));
+        assert.ok(result.includes('update_memory'));
+        assert.ok(result.includes('delete_memory'));
     });
 
     it('should replace "your human partner" jargon', () => {

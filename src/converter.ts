@@ -19,12 +19,6 @@ const CONVERSION_RULES: Array<{ pattern: RegExp; replacement: string }> = [
     { pattern: /\bGlob\b(?!\s*\()/g, replacement: 'file search' },
     { pattern: /\bAskUserQuestion\b/g, replacement: 'ask the user' },
 
-    // MCP memory tool references → natural language
-    { pattern: /\bsearch_memory\b/g, replacement: 'search your memory' },
-    { pattern: /\bsave_memory\b/g, replacement: 'save to memory' },
-    { pattern: /\bupdate_memory\b/g, replacement: 'update the memory' },
-    { pattern: /\bdelete_memory\b/g, replacement: 'delete the memory' },
-
     // Plan mode
     { pattern: /\bEnterPlanMode\b/g, replacement: 'present your plan to the user for approval' },
     { pattern: /\bExitPlanMode\b/g, replacement: 'finalize the plan and proceed' },
