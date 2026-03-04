@@ -190,7 +190,13 @@ export async function activate(context: vscode.ExtensionContext) {
     });
     context.subscriptions.push(treeView);
 
-    // Initial discovery
+    // Fast refresh: only reload manifest, reuse cached plugins
+    async function refreshManifest() {
+        const manifest = await loadManifest(workspaceUri);
+        treeProvider.setData(importService.getPlugins(), manifest);
+    }
+
+    // Full refresh: re-discover plugins from local cache and remote repos
     async function refreshAll() {
         const { cachePath, remoteRepos } = getConfig();
         const plugins = await importService.discoverAllPlugins(cachePath, remoteRepos);
@@ -401,16 +407,16 @@ export async function activate(context: vscode.ExtensionContext) {
     const manifestWatcher = vscode.workspace.createFileSystemWatcher(
         new vscode.RelativePattern(workspaceUri, '.github/.copilot-skill-bridge.json')
     );
-    manifestWatcher.onDidChange(() => refreshAll());
-    manifestWatcher.onDidCreate(() => refreshAll());
-    manifestWatcher.onDidDelete(() => refreshAll());
+    manifestWatcher.onDidChange(() => refreshManifest());
+    manifestWatcher.onDidCreate(() => refreshManifest());
+    manifestWatcher.onDidDelete(() => refreshManifest());
     context.subscriptions.push(manifestWatcher);
 
     // Watch .git/HEAD for branch switches
     const gitHeadWatcher = vscode.workspace.createFileSystemWatcher(
         new vscode.RelativePattern(workspaceUri, '.git/HEAD')
     );
-    gitHeadWatcher.onDidChange(() => refreshAll());
+    gitHeadWatcher.onDidChange(() => refreshManifest());
     context.subscriptions.push(gitHeadWatcher);
 
     // Listen for config changes

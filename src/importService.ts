@@ -438,6 +438,10 @@ export class ImportService {
         this.allPlugins = plugins;
     }
 
+    getPlugins(): PluginInfo[] {
+        return this.allPlugins;
+    }
+
     getPluginsByMarketplace(marketplace: string): PluginInfo[] {
         return this.allPlugins.filter(p => p.marketplace === marketplace);
     }
