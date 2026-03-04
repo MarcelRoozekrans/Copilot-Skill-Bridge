@@ -69,7 +69,7 @@ describe('updateCopilotInstructions', () => {
 
     it('should write a registry table for new entries', async () => {
         const entries = [
-            { name: 'brainstorming', trigger: 'Before creative work', file: '.github/instructions/brainstorming.instructions.md' },
+            { name: 'brainstorming', file: '.github/instructions/brainstorming.instructions.md' },
         ];
         await updateCopilotInstructions(workspaceUri, entries);
         assert.ok(writtenContent);
@@ -86,7 +86,7 @@ describe('updateCopilotInstructions', () => {
     it('should merge into existing content', async () => {
         (vscode.workspace.fs as any).readFile = async () => Buffer.from('# My Instructions\n\nSome existing content.');
         const entries = [
-            { name: 'tdd', trigger: 'Before implementing', file: '.github/instructions/tdd.instructions.md' },
+            { name: 'tdd', file: '.github/instructions/tdd.instructions.md' },
         ];
         await updateCopilotInstructions(workspaceUri, entries);
         assert.ok(writtenContent);
