@@ -76,7 +76,7 @@ export interface ConversionResult {
     convertedBody: string;
     instructionsContent: string;
     promptContent: string;
-    registryEntry: { name: string; trigger: string; file: string };
+    registryEntry: { name: string; file: string };
     originalContent: string;
 }
 
