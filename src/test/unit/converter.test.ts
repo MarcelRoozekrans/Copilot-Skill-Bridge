@@ -156,10 +156,24 @@ describe('generateFullPromptFile', () => {
 });
 
 describe('generateRegistryEntry', () => {
-    it('should return registry table row data', () => {
-        const result = generateRegistryEntry('brainstorming', 'Use before creative work');
+    it('should default to instructions path when no output formats given', () => {
+        const result = generateRegistryEntry('brainstorming');
         assert.strictEqual(result.name, 'brainstorming');
-        assert.strictEqual(result.trigger, 'Use before creative work');
-        assert.ok(result.file.includes('brainstorming.instructions.md'));
+        assert.strictEqual(result.file, '.github/instructions/brainstorming.instructions.md');
+    });
+
+    it('should use prompts path when output format is prompts-only', () => {
+        const result = generateRegistryEntry('brainstorming', ['prompts']);
+        assert.strictEqual(result.file, '.github/prompts/brainstorming.prompt.md');
+    });
+
+    it('should use instructions path when both formats are enabled', () => {
+        const result = generateRegistryEntry('brainstorming', ['instructions', 'prompts']);
+        assert.strictEqual(result.file, '.github/instructions/brainstorming.instructions.md');
+    });
+
+    it('should use instructions path when instructions-only', () => {
+        const result = generateRegistryEntry('brainstorming', ['instructions']);
+        assert.strictEqual(result.file, '.github/instructions/brainstorming.instructions.md');
     });
 });
