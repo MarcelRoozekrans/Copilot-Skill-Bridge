@@ -8,12 +8,12 @@ Copilot Skill Bridge discovers skills from local Claude plugin caches and remote
 
 - **Skill Discovery** -- Finds skills from your local Claude plugin cache and configurable remote GitHub marketplace repositories. Search GitHub for new marketplaces directly from the command palette.
 - **Smart Conversion** -- Applies 31+ transformation rules to translate Claude-specific tool names, file paths, and conventions into Copilot equivalents. MCP tool references are preserved as-is.
-- **Compatibility Analysis** -- Detects skills that require Claude-only infrastructure (sub-agent dispatch, parallel agents, meta-orchestrators) and marks them as incompatible. MCP-dependent skills are allowed when a matching MCP server is available.
+- **Compatibility Analysis** -- Detects skills that require Claude-only infrastructure (sub-agent dispatch, parallel agents) and marks them as incompatible. Meta-orchestrator skills are allowed since `copilot-instructions.md` serves this role. MCP-dependent skills are allowed when a matching MCP server is available.
 - **Always Active Skills** -- Mark any imported skill as "always active" to write it as a `.github/instructions/<name>.instructions.md` file with `applyTo: '**/*'`, so Copilot loads it on every message. Useful for generic skills like long-term memory that should always be available.
 - **Skill Preview** -- Click any skill in the sidebar to view its content in a read-only editor. Single skill imports show a side-by-side diff of the original vs. converted content before you accept.
 - **MCP Server Support** -- Discovers, imports, and manages MCP server configurations from plugins. Writes `.vscode/mcp.json` with proper stdio/HTTP configs and secret input detection.
 - **TreeView Sidebar** -- A dedicated activity bar panel groups plugins by marketplace, shows sync status with icons, and provides inline actions and right-click context menus for import/remove/embed. Hover any item for a description tooltip. Click "Open Source Repository" to visit a marketplace or plugin on GitHub.
-- **Bulk Import** -- Import all compatible skills from a plugin in one action with a modal confirmation, progress bar, and error summary.
+- **Bulk Import / Remove** -- Import or remove all compatible skills and MCP servers from a plugin or marketplace in one action with modal confirmation, progress bar, and error summary.
 - **Update Watching** -- Periodically checks remote sources for new or updated skills and notifies you when changes are available.
 - **Marketplace Search** -- Search GitHub for Claude marketplace repositories with star counts, or enter a repo manually.
 - **GitHub Authentication** -- Optionally sign in with GitHub via the VS Code authentication API to access private repositories and increase API rate limits.
@@ -75,9 +75,9 @@ When only `prompts` is selected, the full converted skill content is embedded di
 Claude Code skills use Claude-specific tool names, file paths, and conventions that GitHub Copilot does not understand. Copilot Skill Bridge:
 
 1. **Discovers** plugins from your local Claude cache and remote GitHub marketplace repos.
-2. **Analyzes** each skill for compatibility -- skills requiring sub-agent dispatch, parallel agents, or meta-orchestrator patterns are flagged as incompatible. MCP-dependent skills (e.g. memory tools) are allowed when a matching server is available from the plugin, your workspace, or the system.
+2. **Analyzes** each skill for compatibility -- skills requiring sub-agent dispatch or parallel agents are flagged as incompatible. Meta-orchestrator skills are allowed (`copilot-instructions.md` serves this role). MCP-dependent skills (e.g. memory tools) are allowed when a matching server is available from the plugin, your workspace, or the system.
 3. **Converts** compatible skills by applying 31+ regex transformation rules (e.g. `TodoWrite` -> task checklist, `CLAUDE.md` -> `.github/copilot-instructions.md`, `superpowers:skill-name` -> instruction file references).
-4. **Writes** the converted content as `.github/prompts/*.prompt.md` and/or `.github/instructions/*.instructions.md` files. An optional registry block is appended to `copilot-instructions.md` so Copilot knows which skills are available.
+4. **Writes** the converted content as `.github/prompts/*.prompt.md` and/or `.github/instructions/*.instructions.md` files. A slim registry table is appended to `copilot-instructions.md` with skill names and file paths, so Copilot knows which skills are available. The registry references the correct file paths based on your configured output format.
 5. **Manages** MCP server configurations by converting Claude's `.mcp.json` format into VS Code's `.vscode/mcp.json` format, with automatic secret input detection for environment variables.
 
 ## License

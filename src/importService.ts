@@ -10,6 +10,15 @@ import { convertMcpServers } from './mcpConverter';
 import { readMcpJson, writeMcpJson, mergeMcpConfigs, removeServerFromConfig } from './mcpWriter';
 import { analyzeCompatibility } from './compatAnalyzer';
 
+const META_ORCHESTRATOR_PATTERNS: RegExp[] = [
+    /check\s+skills?\s+before\s+every\s+response/i,
+    /invoke.*skill.*before.*any.*response/i,
+];
+
+function isMetaOrchestratorSkill(skill: SkillInfo): boolean {
+    return META_ORCHESTRATOR_PATTERNS.some(p => p.test(skill.content));
+}
+
 export class ImportService {
     private allPlugins: PluginInfo[] = [];
 
@@ -140,8 +149,7 @@ export class ImportService {
         const choice = await vscode.window.showInformationMessage(
             `Import ${compatibleSkills.length} skill(s)${incompatibleNote}: ${summary}?`,
             { modal: true },
-            'Import All',
-            'Cancel'
+            'Import All'
         );
 
         if (choice !== 'Import All') {
@@ -225,6 +233,12 @@ export class ImportService {
 
         let manifest = await loadManifest(this.workspaceUri);
         manifest = recordImport(manifest, skill.name, source, hash);
+
+        if (isMetaOrchestratorSkill(skill)) {
+            manifest = setSkillEmbedded(manifest, skill.name, true);
+            await writeInstructionsFile(this.workspaceUri, skill.name, conversion.instructionsContent);
+        }
+
         await saveManifest(this.workspaceUri, manifest);
 
         if (generateRegistry) {
@@ -274,8 +288,7 @@ export class ImportService {
         const choice = await vscode.window.showWarningMessage(
             `Remove ${parts.join(' and ')} from this project?`,
             { modal: true },
-            'Remove All',
-            'Cancel'
+            'Remove All'
         );
 
         if (choice !== 'Remove All') {
@@ -380,10 +393,12 @@ export class ImportService {
     }
 
     private async updateRegistry(manifest: import('./types').BridgeManifest, outputFormats?: OutputFormat[]): Promise<void> {
-        const entries = Object.keys(manifest.skills).map(name => {
-            return generateRegistryEntry(name, outputFormats);
-        });
-        await updateCopilotInstructions(this.workspaceUri, entries);
+        const allSkills = Object.keys(manifest.skills);
+        const entries = allSkills
+            .filter(name => manifest.skills[name].embedded === true)
+            .map(name => generateRegistryEntry(name, outputFormats));
+        const hasPromptSkills = allSkills.length > entries.length;
+        await updateCopilotInstructions(this.workspaceUri, entries, hasPromptSkills);
     }
 
     private async showPreview(skill: SkillInfo, conversion: ConversionResult): Promise<boolean> {
@@ -421,6 +436,10 @@ export class ImportService {
 
     setPlugins(plugins: PluginInfo[]) {
         this.allPlugins = plugins;
+    }
+
+    getPlugins(): PluginInfo[] {
+        return this.allPlugins;
     }
 
     getPluginsByMarketplace(marketplace: string): PluginInfo[] {

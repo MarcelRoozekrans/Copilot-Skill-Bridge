@@ -190,7 +190,13 @@ export async function activate(context: vscode.ExtensionContext) {
     });
     context.subscriptions.push(treeView);
 
-    // Initial discovery
+    // Fast refresh: only reload manifest, reuse cached plugins
+    async function refreshManifest() {
+        const manifest = await loadManifest(workspaceUri);
+        treeProvider.setData(importService.getPlugins(), manifest);
+    }
+
+    // Full refresh: re-discover plugins from local cache and remote repos
     async function refreshAll() {
         const { cachePath, remoteRepos } = getConfig();
         const plugins = await importService.discoverAllPlugins(cachePath, remoteRepos);
@@ -349,6 +355,41 @@ export async function activate(context: vscode.ExtensionContext) {
             await refreshAll();
         }),
 
+        vscode.commands.registerCommand('copilotSkillBridge.removeMarketplace', async (item?: SkillTreeItem) => {
+            const repo = item?.marketplaceRepo ?? item?.pluginInfo?.marketplace;
+            if (!repo) {
+                vscode.window.showWarningMessage('Select a marketplace or plugin from the Copilot Skill Bridge sidebar.');
+                return;
+            }
+
+            const choice = await vscode.window.showWarningMessage(
+                `Remove marketplace "${repo}" and all its imported skills?`,
+                { modal: true },
+                'Remove'
+            );
+            if (choice !== 'Remove') { return; }
+
+            // Remove all imported skills/MCP servers from this marketplace
+            const plugins = importService.getPluginsByMarketplace(repo);
+            const allSkills = plugins.flatMap(p => p.skills);
+            const allMcpServers = plugins.flatMap(p => p.mcpServers ?? []);
+            const { generateRegistry, outputFormats } = getConfig();
+            try {
+                await importService.removeAllSkills(allSkills, generateRegistry, allMcpServers, outputFormats as import('./types').OutputFormat[]);
+            } catch {
+                // Best effort — continue removing marketplace from settings
+            }
+
+            // Remove from settings
+            const config = vscode.workspace.getConfiguration('copilotSkillBridge');
+            const current: string[] = config.get('marketplaces', []);
+            const updated = current.filter(r => r !== repo);
+            await config.update('marketplaces', updated, vscode.ConfigurationTarget.Global);
+
+            vscode.window.showInformationMessage(`Removed marketplace: ${repo}`);
+            await refreshAll();
+        }),
+
         vscode.commands.registerCommand('copilotSkillBridge.removeAllFromMarketplace', async (item?: SkillTreeItem) => {
             const repo = item?.marketplaceRepo;
             if (!repo) {
@@ -396,6 +437,22 @@ export async function activate(context: vscode.ExtensionContext) {
     });
 
     context.subscriptions.push(updateWatcher);
+
+    // Watch manifest file for changes (e.g. branch switch)
+    const manifestWatcher = vscode.workspace.createFileSystemWatcher(
+        new vscode.RelativePattern(workspaceUri, '.github/.copilot-skill-bridge.json')
+    );
+    manifestWatcher.onDidChange(() => refreshManifest());
+    manifestWatcher.onDidCreate(() => refreshManifest());
+    manifestWatcher.onDidDelete(() => refreshManifest());
+    context.subscriptions.push(manifestWatcher);
+
+    // Watch .git/HEAD for branch switches
+    const gitHeadWatcher = vscode.workspace.createFileSystemWatcher(
+        new vscode.RelativePattern(workspaceUri, '.git/HEAD')
+    );
+    gitHeadWatcher.onDidChange(() => refreshManifest());
+    context.subscriptions.push(gitHeadWatcher);
 
     // Listen for config changes
     context.subscriptions.push(

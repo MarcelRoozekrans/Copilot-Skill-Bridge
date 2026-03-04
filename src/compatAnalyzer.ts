@@ -16,8 +16,6 @@ const BLOCKING_PATTERNS: BlockingPattern[] = [
     { pattern: /spawn\w*\s+\w*agent/i, reason: 'Requires sub-agent dispatch' },
     { pattern: /parallel\s+agents?/i, reason: 'Requires parallel agent architecture' },
     { pattern: /launch\s+.*agents?\s+.*(?:independent|parallel|concurrent)/i, reason: 'Requires parallel agent architecture' },
-    { pattern: /check\s+skills?\s+before\s+every\s+response/i, reason: 'Meta-orchestrator pattern (no Copilot equivalent)' },
-    { pattern: /invoke.*skill.*before.*any.*response/i, reason: 'Meta-orchestrator pattern (no Copilot equivalent)' },
 ];
 
 /** MCP tool patterns — not blocking, but tracked as informational dependencies */
