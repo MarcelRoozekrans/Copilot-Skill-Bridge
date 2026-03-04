@@ -47,11 +47,11 @@ describe('analyzeCompatibility', () => {
         assert.strictEqual(result.issues.length, 0);
     });
 
-    it('should detect meta-orchestrator pattern', () => {
+    it('should allow meta-orchestrator pattern (copilot-instructions.md serves this role)', () => {
         const skill = makeSkill('Check skills before every response. Invoke skill before any response.');
         const result = analyzeCompatibility(skill, [], {}, {});
-        assert.strictEqual(result.compatible, false);
-        assert.ok(result.issues.some(i => i.includes('Meta-orchestrator')));
+        assert.strictEqual(result.compatible, true);
+        assert.strictEqual(result.issues.length, 0);
     });
 
     it('should track memory tools as informational dependencies without blocking', () => {
@@ -78,7 +78,7 @@ describe('analyzeCompatibility', () => {
     });
 
     it('should handle multiple blocking patterns', () => {
-        const skill = makeSkill('Dispatch subtask. Check skills before every response.');
+        const skill = makeSkill('Dispatch subtask agents. Launch parallel agents concurrently.');
         const result = analyzeCompatibility(skill, [], {}, {});
         assert.strictEqual(result.compatible, false);
         assert.ok(result.issues.length >= 2);
