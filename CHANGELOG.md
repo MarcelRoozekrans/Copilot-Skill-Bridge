@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.1](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/compare/copilot-skill-bridge-v0.13.0...copilot-skill-bridge-v0.13.1) (2026-03-04)
+
+
+### Bug Fixes
+
+* allow meta-orchestrator skills and remove duplicate Cancel button ([#39](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/issues/39)) ([da1681c](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/commit/da1681c0afc8ba28e35389c28221a2204d6b7bd7))
+
 ## [0.13.0](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/compare/copilot-skill-bridge-v0.12.0...copilot-skill-bridge-v0.13.0) (2026-03-04)
 
 
