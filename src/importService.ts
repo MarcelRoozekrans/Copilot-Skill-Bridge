@@ -10,6 +10,15 @@ import { convertMcpServers } from './mcpConverter';
 import { readMcpJson, writeMcpJson, mergeMcpConfigs, removeServerFromConfig } from './mcpWriter';
 import { analyzeCompatibility } from './compatAnalyzer';
 
+const META_ORCHESTRATOR_PATTERNS: RegExp[] = [
+    /check\s+skills?\s+before\s+every\s+response/i,
+    /invoke.*skill.*before.*any.*response/i,
+];
+
+function isMetaOrchestratorSkill(skill: SkillInfo): boolean {
+    return META_ORCHESTRATOR_PATTERNS.some(p => p.test(skill.content));
+}
+
 export class ImportService {
     private allPlugins: PluginInfo[] = [];
 
@@ -224,6 +233,12 @@ export class ImportService {
 
         let manifest = await loadManifest(this.workspaceUri);
         manifest = recordImport(manifest, skill.name, source, hash);
+
+        if (isMetaOrchestratorSkill(skill)) {
+            manifest = setSkillEmbedded(manifest, skill.name, true);
+            await writeInstructionsFile(this.workspaceUri, skill.name, conversion.instructionsContent);
+        }
+
         await saveManifest(this.workspaceUri, manifest);
 
         if (generateRegistry) {
