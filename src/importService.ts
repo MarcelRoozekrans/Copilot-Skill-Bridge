@@ -76,7 +76,7 @@ export class ImportService {
             convertedBody,
             instructionsContent: generateInstructionsFile(skill.name, skill.description, convertedBody),
             promptContent: generatePromptFile(skill.name, skill.description),
-            registryEntry: generateRegistryEntry(skill.name, skill.description),
+            registryEntry: generateRegistryEntry(skill.name, outputFormats),
             originalContent: skill.content,
         };
     }
@@ -228,11 +228,11 @@ export class ImportService {
         await saveManifest(this.workspaceUri, manifest);
 
         if (generateRegistry) {
-            await this.updateRegistry(manifest);
+            await this.updateRegistry(manifest, outputFormats as OutputFormat[]);
         }
     }
 
-    async removeSkill(skillName: string, generateRegistry: boolean): Promise<void> {
+    async removeSkill(skillName: string, generateRegistry: boolean, outputFormats?: OutputFormat[]): Promise<void> {
         await removeSkillFiles(this.workspaceUri, skillName);
 
         let manifest = await loadManifest(this.workspaceUri);
@@ -240,7 +240,7 @@ export class ImportService {
         await saveManifest(this.workspaceUri, manifest);
 
         if (generateRegistry) {
-            await this.updateRegistry(manifest);
+            await this.updateRegistry(manifest, outputFormats);
         }
 
         vscode.window.showInformationMessage(`Removed skill: ${skillName}`);
@@ -249,7 +249,8 @@ export class ImportService {
     async removeAllSkills(
         skills: SkillInfo[],
         generateRegistry: boolean,
-        mcpServers?: McpServerInfo[]
+        mcpServers?: McpServerInfo[],
+        outputFormats?: OutputFormat[]
     ): Promise<BulkImportResult> {
         const result: BulkImportResult = { imported: [], failed: [] };
         let manifest = await loadManifest(this.workspaceUri);
@@ -326,7 +327,7 @@ export class ImportService {
         await saveManifest(this.workspaceUri, manifest);
 
         if (generateRegistry) {
-            await this.updateRegistry(manifest);
+            await this.updateRegistry(manifest, outputFormats);
         }
 
         if (result.failed.length === 0) {
@@ -373,15 +374,14 @@ export class ImportService {
         vscode.window.showInformationMessage(`Skill "${skillName}" is no longer always active.`);
     }
 
-    async rebuildRegistry(): Promise<void> {
+    async rebuildRegistry(outputFormats?: OutputFormat[]): Promise<void> {
         const manifest = await loadManifest(this.workspaceUri);
-        await this.updateRegistry(manifest);
+        await this.updateRegistry(manifest, outputFormats);
     }
 
-    private async updateRegistry(manifest: import('./types').BridgeManifest): Promise<void> {
+    private async updateRegistry(manifest: import('./types').BridgeManifest, outputFormats?: OutputFormat[]): Promise<void> {
         const entries = Object.keys(manifest.skills).map(name => {
-            const skillData = this.findSkillByName(name);
-            return generateRegistryEntry(name, skillData?.description ?? '');
+            return generateRegistryEntry(name, outputFormats);
         });
         await updateCopilotInstructions(this.workspaceUri, entries);
     }

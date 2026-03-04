@@ -1,6 +1,5 @@
 interface RegistryEntry {
     name: string;
-    trigger: string;
     file: string;
 }
 
@@ -93,10 +92,10 @@ ${convertedBody}
 `;
 }
 
-export function generateRegistryEntry(name: string, description: string): RegistryEntry {
-    return {
-        name,
-        trigger: description,
-        file: `.github/instructions/${name}.instructions.md`,
-    };
+export function generateRegistryEntry(name: string, outputFormats?: OutputFormat[]): RegistryEntry {
+    const usePrompts = outputFormats && !outputFormats.includes('instructions') && outputFormats.includes('prompts');
+    const file = usePrompts
+        ? `.github/prompts/${name}.prompt.md`
+        : `.github/instructions/${name}.instructions.md`;
+    return { name, file };
 }

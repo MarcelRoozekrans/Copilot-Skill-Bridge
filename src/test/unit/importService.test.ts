@@ -63,8 +63,7 @@ describe('ImportService.convertSkill', () => {
     it('should generate correct registry entry', () => {
         const result = service.convertSkill(makeSkill({ name: 'brainstorming', description: 'Creative helper' }));
         assert.strictEqual(result.registryEntry.name, 'brainstorming');
-        assert.strictEqual(result.registryEntry.trigger, 'Creative helper');
-        assert.ok(result.registryEntry.file.includes('brainstorming.instructions.md'));
+        assert.ok(result.registryEntry.file.includes('brainstorming'));
     });
 
     it('should strip frontmatter from the instructions body', () => {
