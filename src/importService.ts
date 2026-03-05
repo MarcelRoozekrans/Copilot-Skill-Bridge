@@ -9,6 +9,7 @@ import { discoverRemotePlugins, GitHubApiError } from './remoteReader';
 import { convertMcpServers } from './mcpConverter';
 import { readMcpJson, writeMcpJson, mergeMcpConfigs, removeServerFromConfig } from './mcpWriter';
 import { analyzeCompatibility } from './compatAnalyzer';
+import { convertWithLM } from './lmConverter';
 
 const META_ORCHESTRATOR_PATTERNS: RegExp[] = [
     /check\s+skills?\s+before\s+every\s+response/i,
@@ -89,9 +90,13 @@ export class ImportService {
         return Array.from(merged.values());
     }
 
-    convertSkill(skill: SkillInfo, outputFormats?: OutputFormat[]): ConversionResult {
+    async convertSkill(skill: SkillInfo, outputFormats?: OutputFormat[], useLm?: boolean): Promise<ConversionResult> {
         const parsed = parseSkillFrontmatter(skill.content);
-        const convertedBody = convertSkillContent(parsed.body, outputFormats);
+        let convertedBody = convertSkillContent(parsed.body, outputFormats);
+
+        if (useLm) {
+            convertedBody = await convertWithLM(convertedBody);
+        }
 
         return {
             convertedBody,
@@ -102,7 +107,7 @@ export class ImportService {
         };
     }
 
-    async importSkill(skill: SkillInfo, outputFormats: string[], generateRegistry: boolean): Promise<void> {
+    async importSkill(skill: SkillInfo, outputFormats: string[], generateRegistry: boolean, useLm?: boolean): Promise<void> {
         const compat = analyzeCompatibility(skill, [], {}, {});
         if (!compat.compatible) {
             vscode.window.showWarningMessage(
@@ -111,7 +116,7 @@ export class ImportService {
             return;
         }
 
-        const conversion = this.convertSkill(skill, outputFormats as OutputFormat[]);
+        const conversion = await this.convertSkill(skill, outputFormats as OutputFormat[], useLm);
 
         const accepted = await this.showPreview(skill, conversion);
         if (!accepted) { return; }
@@ -124,7 +129,8 @@ export class ImportService {
         skills: SkillInfo[],
         outputFormats: string[],
         generateRegistry: boolean,
-        mcpServers?: McpServerInfo[]
+        mcpServers?: McpServerInfo[],
+        useLm?: boolean
     ): Promise<BulkImportResult> {
         const result: BulkImportResult = { imported: [], failed: [] };
         if (skills.length === 0 && (!mcpServers || mcpServers.length === 0)) {
@@ -146,10 +152,13 @@ export class ImportService {
             return result;
         }
 
-        const conversions = compatibleSkills.map(skill => ({
-            skill,
-            conversion: this.convertSkill(skill, outputFormats as OutputFormat[]),
-        }));
+        const conversions: Array<{ skill: SkillInfo; conversion: ConversionResult }> = [];
+        for (const skill of compatibleSkills) {
+            conversions.push({
+                skill,
+                conversion: await this.convertSkill(skill, outputFormats as OutputFormat[], useLm),
+            });
+        }
 
         const skillNames = compatibleSkills.map(s => s.name);
         const summary = compatibleSkills.length <= 5
@@ -377,7 +386,7 @@ export class ImportService {
 
         const skillInfo = this.findSkillByName(skillName);
         if (skillInfo) {
-            const conversion = this.convertSkill(skillInfo);
+            const conversion = await this.convertSkill(skillInfo);
             await writeInstructionsFile(this.workspaceUri, skillName, conversion.instructionsContent);
         }
 
