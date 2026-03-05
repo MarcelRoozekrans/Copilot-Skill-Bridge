@@ -178,6 +178,7 @@ export async function activate(context: vscode.ExtensionContext) {
             checkInterval: config.get<number>('checkInterval', 86400),
             outputFormats: config.get<string[]>('outputFormats', ['prompts']),
             generateRegistry: config.get<boolean>('generateRegistry', true),
+            useLmConversion: config.get<boolean>('useLmConversion', true),
         };
     }
 
@@ -245,9 +246,9 @@ export async function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(
         vscode.commands.registerCommand('copilotSkillBridge.importSkill', async (item?: SkillTreeItem) => {
             if (item?.skillInfo) {
-                const { outputFormats, generateRegistry } = getConfig();
+                const { outputFormats, generateRegistry, useLmConversion } = getConfig();
                 try {
-                    await importService.importSkill(item.skillInfo, outputFormats, generateRegistry);
+                    await importService.importSkill(item.skillInfo, outputFormats, generateRegistry, useLmConversion);
                 } catch (err) {
                     const msg = err instanceof Error ? err.message : String(err);
                     vscode.window.showErrorMessage(`Import failed for "${item.skillInfo.name}": ${msg}`);
@@ -264,13 +265,14 @@ export async function activate(context: vscode.ExtensionContext) {
                 vscode.window.showWarningMessage('Select a plugin from the Copilot Skill Bridge sidebar.');
                 return;
             }
-            const { outputFormats, generateRegistry } = getConfig();
+            const { outputFormats, generateRegistry, useLmConversion } = getConfig();
             try {
                 await importService.importAllSkills(
                     plugin.skills,
                     outputFormats,
                     generateRegistry,
-                    plugin.mcpServers
+                    plugin.mcpServers,
+                    useLmConversion
                 );
             } catch (err) {
                 const msg = err instanceof Error ? err.message : String(err);
