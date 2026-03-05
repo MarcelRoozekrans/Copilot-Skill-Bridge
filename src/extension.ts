@@ -201,6 +201,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
     // Full refresh: re-discover plugins from local cache and remote repos
     async function refreshAll() {
+        treeProvider.setLoading();
         const { cachePath, remoteRepos } = getConfig();
         const { plugins, errors } = await importService.discoverAllPlugins(cachePath, remoteRepos);
         importService.setPlugins(plugins);
