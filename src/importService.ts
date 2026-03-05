@@ -125,6 +125,27 @@ export class ImportService {
         vscode.window.showInformationMessage(`Imported skill: ${skill.name}`);
     }
 
+    async updateSkill(skill: SkillInfo, outputFormats: string[], generateRegistry: boolean, useLm?: boolean): Promise<void> {
+        const compat = analyzeCompatibility(skill, [], {}, {});
+        if (!compat.compatible) {
+            vscode.window.showWarningMessage(
+                `Skill "${skill.name}" is incompatible with VS Code Copilot: ${compat.issues.join('; ')}`
+            );
+            return;
+        }
+
+        const choice = await vscode.window.showInformationMessage(
+            `Update "${skill.name}" to the latest version?`,
+            { modal: true },
+            'Update'
+        );
+        if (choice !== 'Update') { return; }
+
+        const conversion = await this.convertSkill(skill, outputFormats as OutputFormat[], useLm);
+        await this.writeSkillFiles(skill, conversion, outputFormats, generateRegistry);
+        vscode.window.showInformationMessage(`Updated skill: ${skill.name}`);
+    }
+
     async importAllSkills(
         skills: SkillInfo[],
         outputFormats: string[],
