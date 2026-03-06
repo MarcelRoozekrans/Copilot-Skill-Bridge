@@ -4,6 +4,11 @@ export type SkillSource = 'local' | 'remote' | 'both';
 
 export type OutputFormat = 'instructions' | 'prompts';
 
+export interface CompanionFile {
+    name: string;
+    content: string;
+}
+
 export interface SkillInfo {
     name: string;
     description: string;
@@ -13,6 +18,7 @@ export interface SkillInfo {
     marketplace: string;
     source: SkillSource;
     filePath?: string;
+    companionFiles?: CompanionFile[];
 }
 
 export interface ClaudeMcpServerConfig {
