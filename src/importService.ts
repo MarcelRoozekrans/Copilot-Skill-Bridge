@@ -11,6 +11,17 @@ import { readMcpJson, writeMcpJson, mergeMcpConfigs, removeServerFromConfig } fr
 import { analyzeCompatibility, extractSkillDependencies } from './compatAnalyzer';
 import { convertWithLM } from './lmConverter';
 
+let outputChannel: vscode.OutputChannel | undefined;
+function getOutputChannel(): vscode.OutputChannel {
+    if (!outputChannel) {
+        outputChannel = vscode.window.createOutputChannel('Copilot Skill Bridge');
+    }
+    return outputChannel;
+}
+function log(msg: string): void {
+    getOutputChannel().appendLine(`[${new Date().toISOString()}] ${msg}`);
+}
+
 const META_ORCHESTRATOR_PATTERNS: RegExp[] = [
     /check\s+skills?\s+before\s+every\s+response/i,
     /invoke.*skill.*before.*any.*response/i,
@@ -29,6 +40,7 @@ export class ImportService {
         cachePath: string,
         remoteRepos: string[],
         onProgress?: (plugins: PluginInfo[]) => void,
+        remoteFetcher: (repo: string) => Promise<RemoteDiscoveryResult> = discoverRemotePlugins,
     ): Promise<DiscoveryResult> {
         resetTokenCache();
         const localPlugins = await discoverLocalPlugins(cachePath);
@@ -42,6 +54,7 @@ export class ImportService {
 
         const visited = new Set<string>();
         const queue = [...remoteRepos];
+        log(`BFS start: queue=${JSON.stringify(remoteRepos)}`);
 
         while (queue.length > 0) {
             const batch = queue.splice(0, queue.length).filter(repo => {
@@ -52,14 +65,17 @@ export class ImportService {
             });
 
             if (batch.length === 0) { break; }
+            log(`BFS batch: ${JSON.stringify(batch)}`);
 
             const results = await Promise.allSettled(
-                batch.map(repo => discoverRemotePlugins(repo))
+                batch.map(repo => remoteFetcher(repo))
             );
 
             for (let i = 0; i < results.length; i++) {
                 const result = results[i];
                 if (result.status === 'fulfilled') {
+                    const pluginNames = result.value.plugins.map(p => p.name);
+                    log(`  ${batch[i]}: ${pluginNames.length} plugins [${pluginNames.join(', ')}], ${result.value.dependencies.length} deps [${result.value.dependencies.join(', ')}]`);
                     remotePlugins.push(...result.value.plugins);
                     for (const dep of result.value.dependencies) {
                         if (!visited.has(dep.toLowerCase())) {
@@ -68,6 +84,7 @@ export class ImportService {
                     }
                 } else {
                     const err = result.reason;
+                    log(`  ${batch[i]}: ERROR ${err instanceof Error ? err.message : String(err)}`);
                     errors.push({
                         repo: batch[i],
                         message: err instanceof Error ? err.message : String(err),
@@ -76,11 +93,14 @@ export class ImportService {
                 }
             }
 
+            log(`BFS queue after batch: ${JSON.stringify(queue)}`);
+
             // Show incremental results after each BFS batch
             if (onProgress) {
                 onProgress(this.mergePluginLists(localPlugins, remotePlugins));
             }
         }
+        log(`BFS complete: ${remotePlugins.length} total remote plugins, ${errors.length} errors`);
 
         return {
             plugins: this.mergePluginLists(localPlugins, remotePlugins),

@@ -1,6 +1,7 @@
 import * as assert from 'assert';
 import { ImportService } from '../../importService';
 import { SkillInfo, McpServerInfo, PluginInfo } from '../../types';
+import { RemoteDiscoveryResult } from '../../remoteReader';
 
 function makeSkill(overrides: Partial<SkillInfo> = {}): SkillInfo {
     return {
@@ -665,5 +666,192 @@ describe('ImportService.resolveDependencies', () => {
 
         const { missingSkills } = await service.resolveDependencies(skill);
         assert.strictEqual(missingSkills.length, 0);
+    });
+});
+
+describe('ImportService.discoverAllPlugins BFS dependency resolution', () => {
+    const workspaceUri = { fsPath: '/tmp/test-workspace', path: '/tmp/test-workspace' } as any;
+    let service: ImportService;
+
+    beforeEach(() => {
+        service = new ImportService(workspaceUri);
+    });
+
+    function makePlugin(name: string, marketplace: string, skillNames: string[] = []): PluginInfo {
+        return {
+            name,
+            description: `${name} plugin`,
+            version: '1.0.0',
+            skills: skillNames.map(s => makeSkill({ name: s, pluginName: name, marketplace })),
+            marketplace,
+            source: 'remote',
+        };
+    }
+
+    it('should resolve transitive dependencies via BFS', async () => {
+        // Simulates: marketplace-A depends on marketplace-B, which depends on marketplace-C
+        const responses: Record<string, RemoteDiscoveryResult> = {
+            'user/marketplace-a': {
+                plugins: [makePlugin('plugin-a', 'user/marketplace-a', ['skill-a'])],
+                dependencies: ['user/marketplace-b'],
+            },
+            'user/marketplace-b': {
+                plugins: [makePlugin('plugin-b', 'user/marketplace-b', ['skill-b'])],
+                dependencies: ['user/marketplace-c'],
+            },
+            'user/marketplace-c': {
+                plugins: [makePlugin('plugin-c', 'user/marketplace-c', ['skill-c'])],
+                dependencies: [],
+            },
+        };
+
+        const fetcher = async (repo: string): Promise<RemoteDiscoveryResult> => {
+            const result = responses[repo];
+            if (!result) { throw new Error(`Unknown repo: ${repo}`); }
+            return result;
+        };
+
+        const { plugins, errors } = await service.discoverAllPlugins(
+            '/nonexistent/cache', ['user/marketplace-a'], undefined, fetcher,
+        );
+
+        assert.strictEqual(errors.length, 0);
+        const names = plugins.map(p => p.name).sort();
+        assert.deepStrictEqual(names, ['plugin-a', 'plugin-b', 'plugin-c']);
+    });
+
+    it('should handle source.url redirects (marketplace with no direct plugins)', async () => {
+        // Simulates obra/superpowers-marketplace: all plugins are redirects
+        const responses: Record<string, RemoteDiscoveryResult> = {
+            'user/extensions': {
+                plugins: [makePlugin('my-plugin', 'user/extensions', ['my-skill'])],
+                dependencies: ['obra/superpowers-marketplace'],
+            },
+            'obra/superpowers-marketplace': {
+                plugins: [], // All entries are source.url redirects
+                dependencies: ['obra/superpowers', 'obra/superpowers-chrome'],
+            },
+            'obra/superpowers': {
+                plugins: [makePlugin('superpowers', 'obra/superpowers', ['tdd', 'debugging'])],
+                dependencies: [],
+            },
+            'obra/superpowers-chrome': {
+                plugins: [makePlugin('superpowers-chrome', 'obra/superpowers-chrome', ['browsing'])],
+                dependencies: [],
+            },
+        };
+
+        const fetcher = async (repo: string): Promise<RemoteDiscoveryResult> => {
+            const result = responses[repo];
+            if (!result) { throw new Error(`Unknown repo: ${repo}`); }
+            return result;
+        };
+
+        const { plugins, errors } = await service.discoverAllPlugins(
+            '/nonexistent/cache', ['user/extensions'], undefined, fetcher,
+        );
+
+        assert.strictEqual(errors.length, 0);
+        const names = plugins.map(p => p.name).sort();
+        assert.deepStrictEqual(names, ['my-plugin', 'superpowers', 'superpowers-chrome']);
+    });
+
+    it('should detect cycles and not loop infinitely', async () => {
+        const responses: Record<string, RemoteDiscoveryResult> = {
+            'user/repo-a': {
+                plugins: [makePlugin('a', 'user/repo-a', ['skill-a'])],
+                dependencies: ['user/repo-b'],
+            },
+            'user/repo-b': {
+                plugins: [makePlugin('b', 'user/repo-b', ['skill-b'])],
+                dependencies: ['user/repo-a'], // Cycle!
+            },
+        };
+
+        const fetcher = async (repo: string): Promise<RemoteDiscoveryResult> => {
+            return responses[repo] ?? { plugins: [], dependencies: [] };
+        };
+
+        const { plugins } = await service.discoverAllPlugins(
+            '/nonexistent/cache', ['user/repo-a'], undefined, fetcher,
+        );
+
+        assert.strictEqual(plugins.length, 2);
+    });
+
+    it('should deduplicate repos (case-insensitive)', async () => {
+        let fetchCount = 0;
+        const fetcher = async (repo: string): Promise<RemoteDiscoveryResult> => {
+            fetchCount++;
+            return {
+                plugins: [makePlugin(repo, repo, ['skill-' + fetchCount])],
+                dependencies: [],
+            };
+        };
+
+        const { plugins } = await service.discoverAllPlugins(
+            '/nonexistent/cache', ['User/Repo', 'user/repo'], undefined, fetcher,
+        );
+
+        assert.strictEqual(fetchCount, 1, 'Should only fetch once for case-insensitive duplicate');
+        assert.strictEqual(plugins.length, 1);
+    });
+
+    it('should collect errors from failed repos without blocking others', async () => {
+        const responses: Record<string, RemoteDiscoveryResult> = {
+            'user/good': {
+                plugins: [makePlugin('good', 'user/good', ['skill-good'])],
+                dependencies: ['user/bad', 'user/also-good'],
+            },
+            'user/also-good': {
+                plugins: [makePlugin('also-good', 'user/also-good', ['skill-also'])],
+                dependencies: [],
+            },
+        };
+
+        const fetcher = async (repo: string): Promise<RemoteDiscoveryResult> => {
+            const result = responses[repo];
+            if (!result) { throw new Error(`Repo not found: ${repo}`); }
+            return result;
+        };
+
+        const { plugins, errors } = await service.discoverAllPlugins(
+            '/nonexistent/cache', ['user/good'], undefined, fetcher,
+        );
+
+        assert.strictEqual(plugins.length, 2);
+        assert.strictEqual(errors.length, 1);
+        assert.ok(errors[0].message.includes('user/bad'));
+    });
+
+    it('should call onProgress after each BFS batch', async () => {
+        const responses: Record<string, RemoteDiscoveryResult> = {
+            'user/root': {
+                plugins: [makePlugin('root', 'user/root', ['root-skill'])],
+                dependencies: ['user/dep'],
+            },
+            'user/dep': {
+                plugins: [makePlugin('dep', 'user/dep', ['dep-skill'])],
+                dependencies: [],
+            },
+        };
+
+        const fetcher = async (repo: string): Promise<RemoteDiscoveryResult> => {
+            return responses[repo] ?? { plugins: [], dependencies: [] };
+        };
+
+        const progressCalls: number[] = [];
+        const onProgress = (plugins: PluginInfo[]) => {
+            progressCalls.push(plugins.length);
+        };
+
+        await service.discoverAllPlugins(
+            '/nonexistent/cache', ['user/root'], onProgress, fetcher,
+        );
+
+        // Should have at least 2 progress calls: after batch 1 (root) and batch 2 (dep)
+        assert.ok(progressCalls.length >= 2, `Expected at least 2 progress calls, got ${progressCalls.length}`);
+        assert.strictEqual(progressCalls[0], 1, 'First batch should have 1 plugin');
+        assert.strictEqual(progressCalls[1], 2, 'Second batch should have 2 plugins');
     });
 });

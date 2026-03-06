@@ -109,6 +109,14 @@ const vscodeMock = {
             const token = { isCancellationRequested: false, onCancellationRequested: () => ({ dispose: () => {} }) };
             return task(progress, token);
         },
+        createOutputChannel: (_name: string) => ({
+            appendLine: () => {},
+            append: () => {},
+            clear: () => {},
+            show: () => {},
+            hide: () => {},
+            dispose: () => {},
+        }),
     },
     ConfigurationTarget: { Global: 1, Workspace: 2, WorkspaceFolder: 3 },
     TreeItem: MockTreeItem,
