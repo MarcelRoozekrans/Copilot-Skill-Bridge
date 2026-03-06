@@ -90,14 +90,33 @@ describe('TreeView marketplace grouping', () => {
 
     it('should set marketplace contextValue and repo icon', () => {
         const plugins = [
-            makePlugin({ name: 'a', marketplace: 'user/repo' }),
-            makePlugin({ name: 'b', marketplace: 'user/repo' }),
+            makePlugin({ name: 'a', marketplace: 'user/repo', source: 'remote' }),
+            makePlugin({ name: 'b', marketplace: 'user/repo', source: 'remote' }),
         ];
         provider.setData(plugins, makeManifest());
 
         const root = provider.getChildren(undefined)[0];
         assert.strictEqual(root.contextValue, 'marketplace');
         assert.strictEqual(root.marketplaceRepo, 'user/repo');
+    });
+
+    it('should set marketplace-local contextValue for local-only groups', () => {
+        const plugins = [
+            makePlugin({ name: 'a', marketplace: 'local/cache' }),
+            makePlugin({ name: 'b', marketplace: 'local/cache' }),
+        ];
+        provider.setData(plugins, makeManifest());
+
+        const root = provider.getChildren(undefined)[0];
+        assert.strictEqual(root.contextValue, 'marketplace-local');
+    });
+
+    it('should set plugin-local contextValue for local-only plugins', () => {
+        const plugins = [makePlugin({ name: 'solo', marketplace: 'local/cache', source: 'local' })];
+        provider.setData(plugins, makeManifest());
+
+        const root = provider.getChildren(undefined)[0];
+        assert.strictEqual(root.contextValue, 'plugin-local');
     });
 
     it('should store marketplaceRepo on marketplace nodes', () => {
