@@ -29,7 +29,7 @@ export class SkillTreeItem extends vscode.TreeItem {
             this.iconPath = new vscode.ThemeIcon('package');
             const src = pluginInfo?.source === 'local' ? 'local' : pluginInfo?.source === 'remote' ? 'remote' : 'local + remote';
             this.description = `v${pluginInfo?.version ?? '?'} [${src}]`;
-            this.contextValue = 'plugin';
+            this.contextValue = pluginInfo?.source === 'local' ? 'plugin-local' : 'plugin';
             this.tooltip = pluginInfo?.description ?? label;
         } else if (itemType === 'skill') {
             this.contextValue = `skill-${status}`;
@@ -167,6 +167,8 @@ export class SkillBridgeTreeProvider implements vscode.TreeDataProvider<SkillTre
             } else {
                 const node = new SkillTreeItem(repo, 'marketplace', undefined, undefined, undefined, undefined, undefined, repo);
                 node.description = `${plugins.length} plugins`;
+                const allLocal = plugins.every(p => p.source === 'local');
+                if (allLocal) { node.contextValue = 'marketplace-local'; }
                 items.push(node);
             }
         }

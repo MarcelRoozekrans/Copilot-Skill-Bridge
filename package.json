@@ -180,12 +180,12 @@
         },
         {
           "command": "copilotSkillBridge.importAllSkills",
-          "when": "view == skillBridgeExplorer && viewItem == plugin",
+          "when": "view == skillBridgeExplorer && viewItem =~ /^plugin/",
           "group": "1_actions"
         },
         {
           "command": "copilotSkillBridge.removeAllSkills",
-          "when": "view == skillBridgeExplorer && viewItem == plugin",
+          "when": "view == skillBridgeExplorer && viewItem =~ /^plugin/",
           "group": "1_actions"
         },
         {
@@ -225,7 +225,7 @@
         },
         {
           "command": "copilotSkillBridge.removeAllFromMarketplace",
-          "when": "view == skillBridgeExplorer && viewItem == marketplace",
+          "when": "view == skillBridgeExplorer && viewItem =~ /^marketplace/",
           "group": "1_actions"
         },
         {
