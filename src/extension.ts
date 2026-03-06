@@ -213,7 +213,7 @@ export async function activate(context: vscode.ExtensionContext) {
         const { cachePath, remoteRepos } = getConfig();
         let manifest = await loadManifest(workspaceUri);
 
-        const { plugins, errors } = await importService.discoverAllPlugins(
+        const { plugins, errors, dependencyGraph } = await importService.discoverAllPlugins(
             cachePath,
             remoteRepos,
             (partialPlugins) => {
@@ -223,7 +223,7 @@ export async function activate(context: vscode.ExtensionContext) {
         );
 
         importService.setPlugins(plugins);
-        treeProvider.setData(plugins, manifest);
+        treeProvider.setData(plugins, manifest, dependencyGraph);
 
         if (errors.length > 0) {
             // Don't block refresh — show errors asynchronously

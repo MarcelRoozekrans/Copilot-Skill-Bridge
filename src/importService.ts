@@ -33,8 +33,13 @@ function isMetaOrchestratorSkill(skill: SkillInfo): boolean {
 
 export class ImportService {
     private allPlugins: PluginInfo[] = [];
+    private _depGraph: DependencyGraph = { edges: new Map(), roots: [] };
 
     constructor(private workspaceUri: vscode.Uri) {}
+
+    getDepGraph(): DependencyGraph {
+        return this._depGraph;
+    }
 
     async discoverAllPlugins(
         cachePath: string,
@@ -106,6 +111,8 @@ export class ImportService {
             }
         }
         log(`BFS complete: ${remotePlugins.length} total remote plugins, ${errors.length} errors`);
+
+        this._depGraph = depGraph;
 
         return {
             plugins: this.mergePluginLists(localPlugins, remotePlugins),
