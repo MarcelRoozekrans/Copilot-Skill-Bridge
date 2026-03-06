@@ -1,7 +1,7 @@
 import { SkillInfo, PluginInfo, PluginJson, MarketplaceJson, McpServerInfo, CompanionFile } from './types';
 import { parseSkillFrontmatter } from './parser';
 import { buildAuthHeaders, getGitHubToken } from './auth';
-import { parseMcpJson } from './localReader';
+import { parseMcpJson, mcpObjectToServers } from './localReader';
 
 export function buildGitHubApiUrl(repo: string, path: string, ref?: string): string {
     const base = `https://api.github.com/repos/${repo}/contents/${path}`;
@@ -63,25 +63,74 @@ async function fetchFileContent(repo: string, path: string): Promise<string> {
     return parseGitHubContentsResponse(data);
 }
 
-export function normalizeMarketplaceJson(raw: MarketplaceJson): Array<{ name: string; description: string; version: string; source: string }> {
-    const plugins = raw.plugins ?? raw.marketplace?.plugins ?? [];
-    return plugins.map(p => ({
-        name: p.name,
-        description: p.description,
-        version: p.version,
-        source: p.source ?? p.path ?? './',
-    }));
+/**
+ * Parse a GitHub URL like "https://github.com/owner/repo.git" into "owner/repo".
+ * Returns undefined if the URL doesn't match the expected format.
+ */
+export function parseGitHubRepoFromUrl(url: string): string | undefined {
+    const match = url.match(/github\.com\/([^/]+\/[^/]+?)(?:\.git)?$/i);
+    return match ? match[1] : undefined;
 }
 
-export async function discoverRemotePlugins(repo: string): Promise<PluginInfo[]> {
-    const plugins: PluginInfo[] = [];
+export interface NormalizedMarketplace {
+    plugins: Array<{ name: string; description: string; version: string; source: string }>;
+    /** Additional repos discovered from source.url redirect entries */
+    sourceRedirectRepos: string[];
+}
 
-    let pluginEntries: Array<{ name: string; description: string; version: string; source: string }> = [];
+export function normalizeMarketplaceJson(raw: MarketplaceJson): NormalizedMarketplace {
+    const entries = raw.plugins ?? raw.marketplace?.plugins ?? [];
+    const plugins: NormalizedMarketplace['plugins'] = [];
+    const sourceRedirectRepos: string[] = [];
+
+    for (const p of entries) {
+        if (typeof p.source === 'object' && p.source !== null && 'url' in p.source) {
+            // Object-based source — extract repo from URL and add as redirect
+            const repo = parseGitHubRepoFromUrl(p.source.url);
+            if (repo) {
+                sourceRedirectRepos.push(repo);
+            }
+            // Skip this plugin entry — its skills live in the redirected repo
+            continue;
+        }
+        plugins.push({
+            name: p.name,
+            description: p.description,
+            version: p.version,
+            source: (typeof p.source === 'string' ? p.source : undefined) ?? p.path ?? './',
+        });
+    }
+
+    return { plugins, sourceRedirectRepos };
+}
+
+export function extractDependencies(raw: MarketplaceJson): string[] {
+    const deps = raw.dependencies ?? raw.marketplace?.dependencies ?? [];
+    return deps
+        .map(d => d.startsWith('gh:') ? d.slice(3) : d)
+        .filter(d => d.includes('/'));
+}
+
+export interface RemoteDiscoveryResult {
+    plugins: PluginInfo[];
+    dependencies: string[];
+}
+
+export async function discoverRemotePlugins(repo: string): Promise<RemoteDiscoveryResult> {
+    const plugins: PluginInfo[] = [];
+    let dependencies: string[] = [];
+
+    let pluginEntries: Array<{ name: string; description: string; version: string; source: string; mcpField?: PluginJson['mcpServers'] }> = [];
 
     try {
         const marketplaceContent = await fetchFileContent(repo, '.claude-plugin/marketplace.json');
         const marketplace: MarketplaceJson = JSON.parse(marketplaceContent);
-        pluginEntries = normalizeMarketplaceJson(marketplace);
+        const normalized = normalizeMarketplaceJson(marketplace);
+        pluginEntries = normalized.plugins;
+        dependencies = [
+            ...extractDependencies(marketplace),
+            ...normalized.sourceRedirectRepos,
+        ];
     } catch (err) {
         if (err instanceof GitHubApiError && err.requiresAuth) { throw err; }
         try {
@@ -92,15 +141,26 @@ export async function discoverRemotePlugins(repo: string): Promise<PluginInfo[]>
                 description: pluginMeta.description,
                 version: pluginMeta.version,
                 source: './',
+                mcpField: pluginMeta.mcpServers,
             }];
         } catch (err2) {
             if (err2 instanceof GitHubApiError && err2.requiresAuth) { throw err2; }
-            return plugins;
+            return { plugins, dependencies: [] };
         }
     }
 
     for (const entry of pluginEntries) {
         const basePath = entry.source === './' ? '' : entry.source.replace(/\/$/, '') + '/';
+
+        // Try to read plugin.json to get mcpServers config if not already set
+        if (!entry.mcpField) {
+            try {
+                const pjContent = await fetchFileContent(repo, basePath + '.claude-plugin/plugin.json');
+                const pj: PluginJson = JSON.parse(pjContent);
+                if (pj.mcpServers) { entry.mcpField = pj.mcpServers; }
+            } catch { /* no plugin.json — that's fine */ }
+        }
+
         const skillsPath = basePath + 'skills';
 
         let skillDirs: Array<{ name: string; type: string }>;
@@ -147,13 +207,24 @@ export async function discoverRemotePlugins(repo: string): Promise<PluginInfo[]>
             }
         }
 
+        // Discover MCP servers from plugin.json (inline object or path) with .mcp.json fallback
         let mcpServers: McpServerInfo[] = [];
-        try {
-            const mcpPath = basePath + '.mcp.json';
-            const mcpContent = await fetchFileContent(repo, mcpPath);
-            mcpServers = parseMcpJson(mcpContent, entry.name, entry.version, repo);
-        } catch {
-            // No .mcp.json — that's fine
+        if (typeof entry.mcpField === 'object') {
+            // Inline MCP server configs in plugin.json
+            mcpServers = mcpObjectToServers(entry.mcpField, entry.name, entry.version, repo);
+        } else {
+            const mcpCandidates = typeof entry.mcpField === 'string'
+                ? [basePath + entry.mcpField.replace(/^\.\//, ''), basePath + '.mcp.json']
+                : [basePath + '.mcp.json'];
+            for (const mcpPath of mcpCandidates) {
+                try {
+                    const mcpContent = await fetchFileContent(repo, mcpPath);
+                    mcpServers = parseMcpJson(mcpContent, entry.name, entry.version, repo);
+                    if (mcpServers.length > 0) { break; }
+                } catch {
+                    // This path didn't work — try next
+                }
+            }
         }
 
         plugins.push({
@@ -167,7 +238,7 @@ export async function discoverRemotePlugins(repo: string): Promise<PluginInfo[]>
         });
     }
 
-    return plugins;
+    return { plugins, dependencies };
 }
 
 export async function fetchLatestCommitSha(repo: string): Promise<string> {
