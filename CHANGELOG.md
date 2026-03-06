@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.19.1](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/compare/copilot-skill-bridge-v0.19.0...copilot-skill-bridge-v0.19.1) (2026-03-06)
+
+
+### Bug Fixes
+
+* hide Remove Marketplace for local cache plugins ([a9bc5f1](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/commit/a9bc5f1c49cbc87cf1edf2878def4e8c92ca1025))
+* hide Remove Marketplace option for local cache plugins ([e275607](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/commit/e2756077b0a468957656cf517a18708fe895f0df))
+
 ## [0.19.0](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/compare/copilot-skill-bridge-v0.18.1...copilot-skill-bridge-v0.19.0) (2026-03-06)
 
 
