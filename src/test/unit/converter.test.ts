@@ -223,6 +223,39 @@ describe('generateFullPromptFile', () => {
     });
 });
 
+describe('companion file link rewriting', () => {
+    it('should support companion file link rewriting pattern', () => {
+        const content = 'See [visual-criteria.md](visual-criteria.md) for details.';
+        const escapedName = 'visual-criteria.md'.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const linkPattern = new RegExp(`\\]\\(${escapedName}\\)`, 'g');
+        const result = content.replace(linkPattern, '](regression-test-visual-criteria.md)');
+        assert.ok(result.includes('regression-test-visual-criteria.md'));
+        assert.ok(!result.includes('](visual-criteria.md)'));
+    });
+
+    it('should rewrite multiple companion links in content', () => {
+        const content = 'See [visual-criteria.md](visual-criteria.md) and [checklist.md](checklist.md).';
+        let result = content;
+        for (const name of ['visual-criteria.md', 'checklist.md']) {
+            const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const linkPattern = new RegExp(`\\]\\(${escapedName}\\)`, 'g');
+            result = result.replace(linkPattern, `](regression-test-${name})`);
+        }
+        assert.ok(result.includes('regression-test-visual-criteria.md'));
+        assert.ok(result.includes('regression-test-checklist.md'));
+        assert.ok(!result.includes('](visual-criteria.md)'));
+        assert.ok(!result.includes('](checklist.md)'));
+    });
+
+    it('should not rewrite links that do not match companion names', () => {
+        const content = 'See [other-file.md](other-file.md) for details.';
+        const escapedName = 'visual-criteria.md'.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const linkPattern = new RegExp(`\\]\\(${escapedName}\\)`, 'g');
+        const result = content.replace(linkPattern, '](regression-test-visual-criteria.md)');
+        assert.strictEqual(result, content);
+    });
+});
+
 describe('generateRegistryEntry', () => {
     it('should default to instructions path when no output formats given', () => {
         const result = generateRegistryEntry('brainstorming');
