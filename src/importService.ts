@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { SkillInfo, PluginInfo, ConversionResult, McpServerInfo, BulkImportResult, DiscoveryResult, DiscoveryError } from './types';
+import { SkillInfo, PluginInfo, ConversionResult, McpServerInfo, BulkImportResult, DiscoveryResult, DiscoveryError, DependencyGraph } from './types';
 import { convertSkillContent, generateInstructionsFile, generatePromptFile, generateFullPromptFile, generateRegistryEntry, OutputFormat } from './converter';
 import { parseSkillFrontmatter } from './parser';
 import { computeHash, loadManifest, saveManifest, recordImport, removeSkillRecord, recordMcpImport, removeMcpRecord, isMcpServerImported, setSkillEmbedded, isSkillImported } from './stateManager';
@@ -54,6 +54,7 @@ export class ImportService {
 
         const visited = new Set<string>();
         const queue = [...remoteRepos];
+        const depGraph: DependencyGraph = { edges: new Map(), roots: [...remoteRepos] };
         log(`BFS start: queue=${JSON.stringify(remoteRepos)}`);
 
         while (queue.length > 0) {
@@ -78,6 +79,10 @@ export class ImportService {
                     log(`  ${batch[i]}: ${pluginNames.length} plugins [${pluginNames.join(', ')}], ${result.value.dependencies.length} deps [${result.value.dependencies.join(', ')}]`);
                     remotePlugins.push(...result.value.plugins);
                     for (const dep of result.value.dependencies) {
+                        const parentEdges = depGraph.edges.get(batch[i]) ?? [];
+                        parentEdges.push(dep);
+                        depGraph.edges.set(batch[i], parentEdges);
+
                         if (!visited.has(dep.toLowerCase())) {
                             queue.push(dep);
                         }
@@ -105,6 +110,7 @@ export class ImportService {
         return {
             plugins: this.mergePluginLists(localPlugins, remotePlugins),
             errors,
+            dependencyGraph: depGraph,
         };
     }
 
