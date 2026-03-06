@@ -25,10 +25,19 @@ export class ImportService {
 
     constructor(private workspaceUri: vscode.Uri) {}
 
-    async discoverAllPlugins(cachePath: string, remoteRepos: string[]): Promise<DiscoveryResult> {
+    async discoverAllPlugins(
+        cachePath: string,
+        remoteRepos: string[],
+        onProgress?: (plugins: PluginInfo[]) => void,
+    ): Promise<DiscoveryResult> {
         const localPlugins = await discoverLocalPlugins(cachePath);
         const remotePlugins: PluginInfo[] = [];
         const errors: DiscoveryError[] = [];
+
+        // Show local plugins immediately
+        if (onProgress && localPlugins.length > 0) {
+            onProgress(this.mergePluginLists(localPlugins, []));
+        }
 
         const visited = new Set<string>();
         const queue = [...remoteRepos];
@@ -64,6 +73,11 @@ export class ImportService {
                         requiresAuth: err instanceof GitHubApiError && err.requiresAuth,
                     });
                 }
+            }
+
+            // Show incremental results after each BFS batch
+            if (onProgress) {
+                onProgress(this.mergePluginLists(localPlugins, remotePlugins));
             }
         }
 
