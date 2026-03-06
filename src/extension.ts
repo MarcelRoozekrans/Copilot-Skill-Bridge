@@ -216,9 +216,9 @@ export async function activate(context: vscode.ExtensionContext) {
         const { plugins, errors, dependencyGraph } = await importService.discoverAllPlugins(
             cachePath,
             remoteRepos,
-            (partialPlugins) => {
+            (partialPlugins, partialGraph) => {
                 importService.setPlugins(partialPlugins);
-                treeProvider.setData(partialPlugins, manifest);
+                treeProvider.setData(partialPlugins, manifest, partialGraph);
             },
         );
 

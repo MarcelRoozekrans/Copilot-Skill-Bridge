@@ -44,22 +44,22 @@ export class ImportService {
     async discoverAllPlugins(
         cachePath: string,
         remoteRepos: string[],
-        onProgress?: (plugins: PluginInfo[]) => void,
+        onProgress?: (plugins: PluginInfo[], depGraph?: DependencyGraph) => void,
         remoteFetcher: (repo: string) => Promise<RemoteDiscoveryResult> = discoverRemotePlugins,
     ): Promise<DiscoveryResult> {
         resetTokenCache();
         const localPlugins = await discoverLocalPlugins(cachePath);
         const remotePlugins: PluginInfo[] = [];
         const errors: DiscoveryError[] = [];
+        const depGraph: DependencyGraph = { edges: new Map(), roots: [...remoteRepos] };
 
         // Show local plugins immediately
         if (onProgress && localPlugins.length > 0) {
-            onProgress(this.mergePluginLists(localPlugins, []));
+            onProgress(this.mergePluginLists(localPlugins, []), depGraph);
         }
 
         const visited = new Set<string>();
         const queue = [...remoteRepos];
-        const depGraph: DependencyGraph = { edges: new Map(), roots: [...remoteRepos] };
         log(`BFS start: queue=${JSON.stringify(remoteRepos)}`);
 
         while (queue.length > 0) {
@@ -107,7 +107,7 @@ export class ImportService {
 
             // Show incremental results after each BFS batch
             if (onProgress) {
-                onProgress(this.mergePluginLists(localPlugins, remotePlugins));
+                onProgress(this.mergePluginLists(localPlugins, remotePlugins), depGraph);
             }
         }
         log(`BFS complete: ${remotePlugins.length} total remote plugins, ${errors.length} errors`);

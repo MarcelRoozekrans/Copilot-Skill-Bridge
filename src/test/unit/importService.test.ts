@@ -887,6 +887,46 @@ describe('ImportService.discoverAllPlugins BFS dependency resolution', () => {
         assert.strictEqual(dependencyGraph.edges.has('user/marketplace-c'), false);
     });
 
+    it('should include partial depGraph in onProgress callbacks', async () => {
+        const responses: Record<string, RemoteDiscoveryResult> = {
+            'user/marketplace-a': {
+                plugins: [makePlugin('plugin-a', 'user/marketplace-a')],
+                dependencies: ['user/marketplace-b'],
+            },
+            'user/marketplace-b': {
+                plugins: [makePlugin('plugin-b', 'user/marketplace-b')],
+                dependencies: [],
+            },
+        };
+
+        const fetcher = async (repo: string): Promise<RemoteDiscoveryResult> => {
+            const result = responses[repo];
+            if (!result) { throw new Error(`Unknown repo: ${repo}`); }
+            return result;
+        };
+
+        const progressCalls: Array<{ pluginCount: number; hasGraph: boolean; roots: string[] }> = [];
+        await service.discoverAllPlugins(
+            '/nonexistent/cache',
+            ['user/marketplace-a'],
+            (plugins, depGraph) => {
+                progressCalls.push({
+                    pluginCount: plugins.length,
+                    hasGraph: !!depGraph,
+                    roots: depGraph?.roots ?? [],
+                });
+            },
+            fetcher,
+        );
+
+        assert.ok(progressCalls.length >= 1, 'Should have received at least one progress callback');
+        // All callbacks should include the graph
+        for (const call of progressCalls) {
+            assert.strictEqual(call.hasGraph, true, 'All progress callbacks should include depGraph');
+            assert.deepStrictEqual(call.roots, ['user/marketplace-a']);
+        }
+    });
+
     it('should record redirect repos as edges in dependencyGraph', async () => {
         const responses: Record<string, RemoteDiscoveryResult> = {
             'user/extensions': {
