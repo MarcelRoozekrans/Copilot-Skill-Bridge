@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.18.1](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/compare/copilot-skill-bridge-v0.18.0...copilot-skill-bridge-v0.18.1) (2026-03-06)
+
+
+### Bug Fixes
+
+* update sidebar immediately on marketplace removal ([5c12d14](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/commit/5c12d14b7742a324288bff3bd337f7e0321ee7ff))
+* update sidebar immediately on marketplace removal ([c0dd7e9](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/commit/c0dd7e910d37932bf607a9958fc1e6e90781a48f))
+
 ## [0.18.0](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/compare/copilot-skill-bridge-v0.17.0...copilot-skill-bridge-v0.18.0) (2026-03-06)
 
 
