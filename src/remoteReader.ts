@@ -1,4 +1,4 @@
-import { SkillInfo, PluginInfo, PluginJson, MarketplaceJson, McpServerInfo } from './types';
+import { SkillInfo, PluginInfo, PluginJson, MarketplaceJson, McpServerInfo, CompanionFile } from './types';
 import { parseSkillFrontmatter } from './parser';
 import { buildAuthHeaders, getGitHubToken } from './auth';
 import { parseMcpJson } from './localReader';
@@ -21,7 +21,8 @@ export function buildRemoteSkillInfo(
     content: string,
     pluginName: string,
     pluginVersion: string,
-    repo: string
+    repo: string,
+    companionFiles?: CompanionFile[]
 ): SkillInfo {
     return {
         name,
@@ -31,6 +32,7 @@ export function buildRemoteSkillInfo(
         pluginVersion,
         marketplace: repo,
         source: 'remote',
+        companionFiles: companionFiles && companionFiles.length > 0 ? companionFiles : undefined,
     };
 }
 
@@ -114,6 +116,23 @@ export async function discoverRemotePlugins(repo: string): Promise<PluginInfo[]>
             try {
                 const skillContent = await fetchFileContent(repo, `${skillsPath}/${dir.name}/SKILL.md`);
                 const parsed = parseSkillFrontmatter(skillContent);
+
+                // Discover companion .md files in the skill directory
+                const companionFiles: CompanionFile[] = [];
+                try {
+                    const skillDirUrl = buildGitHubApiUrl(repo, `${skillsPath}/${dir.name}`);
+                    const skillDirEntries: Array<{ name: string; type: string }> = await fetchJson(skillDirUrl);
+                    for (const sdEntry of skillDirEntries) {
+                        if (sdEntry.type !== 'file') { continue; }
+                        if (sdEntry.name === 'SKILL.md') { continue; }
+                        if (!sdEntry.name.endsWith('.md')) { continue; }
+                        try {
+                            const companionContent = await fetchFileContent(repo, `${skillsPath}/${dir.name}/${sdEntry.name}`);
+                            companionFiles.push({ name: sdEntry.name, content: companionContent });
+                        } catch { /* skip individual companion failures */ }
+                    }
+                } catch { /* directory listing failed — skip companions */ }
+
                 skills.push(buildRemoteSkillInfo(
                     parsed.name || dir.name,
                     parsed.description,
@@ -121,6 +140,7 @@ export async function discoverRemotePlugins(repo: string): Promise<PluginInfo[]>
                     entry.name,
                     entry.version,
                     repo,
+                    companionFiles.length > 0 ? companionFiles : undefined,
                 ));
             } catch {
                 // SKILL.md doesn't exist

@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { SkillStatus, SkillInfo, PluginInfo, MarketplaceInfo, SkillImportState, BridgeManifest, McpServerInfo, ClaudeMcpServerConfig, McpServerRecord } from '../../types';
+import { SkillStatus, SkillInfo, PluginInfo, MarketplaceInfo, SkillImportState, BridgeManifest, McpServerInfo, ClaudeMcpServerConfig, McpServerRecord, CompanionFile } from '../../types';
 
 describe('Types', () => {
     it('should create a valid SkillInfo', () => {
@@ -84,6 +84,40 @@ describe('Types', () => {
         assert.ok(manifest.mcpServers['my-mcp-server']);
         assert.strictEqual(manifest.mcpServers['my-mcp-server'].source, 'superpowers@superpowers-marketplace');
         assert.strictEqual(manifest.mcpServers['my-mcp-server'].importedAt, '2026-03-01T00:00:00.000Z');
+    });
+
+    it('should create a SkillInfo with companionFiles', () => {
+        const companions: CompanionFile[] = [
+            { name: 'visual-criteria.md', content: '# Visual Criteria\n\nCheck contrast ratios.' },
+            { name: 'code-quality-rules.md', content: '# Code Quality\n\nNo magic numbers.' },
+        ];
+        const skill: SkillInfo = {
+            name: 'design-review',
+            description: 'Review designs against criteria',
+            content: '# Design Review\n\nMain skill content',
+            pluginName: 'quality-tools',
+            pluginVersion: '1.0.0',
+            marketplace: 'community-marketplace',
+            source: 'remote',
+            filePath: '/path/to/SKILL.md',
+            companionFiles: companions,
+        };
+        assert.strictEqual(skill.companionFiles?.length, 2);
+        assert.strictEqual(skill.companionFiles![0].name, 'visual-criteria.md');
+        assert.strictEqual(skill.companionFiles![1].content, '# Code Quality\n\nNo magic numbers.');
+    });
+
+    it('should allow SkillInfo without companionFiles', () => {
+        const skill: SkillInfo = {
+            name: 'simple-skill',
+            description: 'A skill without companions',
+            content: '# Simple\n\nJust content',
+            pluginName: 'basic',
+            pluginVersion: '1.0.0',
+            marketplace: 'test-marketplace',
+            source: 'local',
+        };
+        assert.strictEqual(skill.companionFiles, undefined);
     });
 
     it('should accept mcpServers array in PluginInfo', () => {

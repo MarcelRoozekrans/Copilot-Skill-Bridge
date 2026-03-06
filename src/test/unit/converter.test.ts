@@ -149,6 +149,37 @@ describe('convertSkillContent', () => {
         const result = convertSkillContent(input);
         assert.strictEqual(result, input);
     });
+
+    it('should replace "claude mcp add" commands', () => {
+        const input = 'claude mcp add playwright -- npx @playwright/mcp@latest --caps=testing';
+        const result = convertSkillContent(input);
+        assert.ok(!result.includes('claude mcp add'), 'Should not contain claude mcp add');
+    });
+
+    it('should replace "claude install" commands', () => {
+        const input = 'claude install gh:MarcelRoozekrans/LongtermMemory-MCP';
+        const result = convertSkillContent(input);
+        assert.ok(!result.includes('claude install'), 'Should not contain claude install');
+    });
+
+    it('should replace "claude plugin install" commands', () => {
+        const input = 'claude plugin install roslyn-codegraph';
+        const result = convertSkillContent(input);
+        assert.ok(!result.includes('claude plugin install'), 'Should not contain claude plugin install');
+    });
+
+    it('should handle "subagent-driven-development" as a skill name gracefully', () => {
+        const input = 'When subagent-driven-development dispatches an agent';
+        const result = convertSkillContent(input);
+        assert.ok(!result.includes('subtasks-driven-development'), 'Should not mangle hyphenated skill names');
+    });
+
+    it('should still replace standalone "subagent" and "subagents"', () => {
+        const input = 'Dispatch a subagent for this work. Multiple subagents run in parallel.';
+        const result = convertSkillContent(input);
+        assert.ok(!result.includes('subagent'), 'Should replace standalone subagent');
+        assert.ok(result.includes('subtask'));
+    });
 });
 
 describe('generateInstructionsFile', () => {
@@ -189,6 +220,39 @@ describe('generateFullPromptFile', () => {
     it('should escape single quotes in description', () => {
         const result = generateFullPromptFile('test', "it's a test", 'body');
         assert.ok(result.includes("it''s a test"));
+    });
+});
+
+describe('companion file link rewriting', () => {
+    it('should support companion file link rewriting pattern', () => {
+        const content = 'See [visual-criteria.md](visual-criteria.md) for details.';
+        const escapedName = 'visual-criteria.md'.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const linkPattern = new RegExp(`\\]\\(${escapedName}\\)`, 'g');
+        const result = content.replace(linkPattern, '](regression-test-visual-criteria.md)');
+        assert.ok(result.includes('regression-test-visual-criteria.md'));
+        assert.ok(!result.includes('](visual-criteria.md)'));
+    });
+
+    it('should rewrite multiple companion links in content', () => {
+        const content = 'See [visual-criteria.md](visual-criteria.md) and [checklist.md](checklist.md).';
+        let result = content;
+        for (const name of ['visual-criteria.md', 'checklist.md']) {
+            const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const linkPattern = new RegExp(`\\]\\(${escapedName}\\)`, 'g');
+            result = result.replace(linkPattern, `](regression-test-${name})`);
+        }
+        assert.ok(result.includes('regression-test-visual-criteria.md'));
+        assert.ok(result.includes('regression-test-checklist.md'));
+        assert.ok(!result.includes('](visual-criteria.md)'));
+        assert.ok(!result.includes('](checklist.md)'));
+    });
+
+    it('should not rewrite links that do not match companion names', () => {
+        const content = 'See [other-file.md](other-file.md) for details.';
+        const escapedName = 'visual-criteria.md'.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const linkPattern = new RegExp(`\\]\\(${escapedName}\\)`, 'g');
+        const result = content.replace(linkPattern, '](regression-test-visual-criteria.md)');
+        assert.strictEqual(result, content);
     });
 });
 

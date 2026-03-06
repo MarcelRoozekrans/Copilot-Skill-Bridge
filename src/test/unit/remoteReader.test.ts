@@ -79,6 +79,25 @@ describe('normalizeMarketplaceJson', () => {
     });
 });
 
+describe('buildRemoteSkillInfo with companions', () => {
+    it('should include companionFiles when provided', () => {
+        const companions = [{ name: 'rules.md', content: '# Rules' }];
+        const skill = buildRemoteSkillInfo('tdd', 'TDD', '# Content', 'sp', '1.0.0', 'obra/sp', companions);
+        assert.strictEqual(skill.companionFiles?.length, 1);
+        assert.strictEqual(skill.companionFiles![0].name, 'rules.md');
+    });
+
+    it('should default to undefined when no companions', () => {
+        const skill = buildRemoteSkillInfo('tdd', 'TDD', '# Content', 'sp', '1.0.0', 'obra/sp');
+        assert.strictEqual(skill.companionFiles, undefined);
+    });
+
+    it('should default to undefined when empty array', () => {
+        const skill = buildRemoteSkillInfo('tdd', 'TDD', '# Content', 'sp', '1.0.0', 'obra/sp', []);
+        assert.strictEqual(skill.companionFiles, undefined);
+    });
+});
+
 describe('GitHubApiError', () => {
     it('should identify 401 as requiring auth', () => {
         const err = new GitHubApiError(401, 'Unauthorized');

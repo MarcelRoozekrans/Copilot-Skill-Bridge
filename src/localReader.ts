@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as os from 'os';
 import * as path from 'path';
-import { SkillInfo, PluginInfo, PluginJson, McpServerInfo, ClaudeMcpServerConfig } from './types';
+import { SkillInfo, PluginInfo, PluginJson, McpServerInfo, ClaudeMcpServerConfig, CompanionFile } from './types';
 import { parseSkillFrontmatter } from './parser';
 
 export function resolveClaudeCachePath(configPath: string): string {
@@ -22,7 +22,8 @@ export function buildSkillInfo(
     pluginName: string,
     pluginVersion: string,
     marketplace: string,
-    filePath: string
+    filePath: string,
+    companionFiles?: CompanionFile[]
 ): SkillInfo {
     return {
         name,
@@ -33,6 +34,7 @@ export function buildSkillInfo(
         marketplace,
         source: 'local',
         filePath,
+        companionFiles: companionFiles && companionFiles.length > 0 ? companionFiles : undefined,
     };
 }
 
@@ -158,11 +160,28 @@ async function discoverSkillsInDir(
     for (const [skillDirName, skillDirType] of entries) {
         if (skillDirType !== vscode.FileType.Directory) { continue; }
 
-        const skillMdUri = vscode.Uri.joinPath(skillsUri, skillDirName, 'SKILL.md');
+        const skillDirUri = vscode.Uri.joinPath(skillsUri, skillDirName);
+        const skillMdUri = vscode.Uri.joinPath(skillDirUri, 'SKILL.md');
         try {
             const raw = await vscode.workspace.fs.readFile(skillMdUri);
             const content = Buffer.from(raw).toString('utf-8');
             const parsed = parseSkillFrontmatter(content);
+
+            const companionFiles: CompanionFile[] = [];
+            try {
+                const dirEntries = await vscode.workspace.fs.readDirectory(skillDirUri);
+                for (const [fileName, fileType] of dirEntries) {
+                    if (fileType !== vscode.FileType.File) { continue; }
+                    if (fileName === 'SKILL.md') { continue; }
+                    if (!fileName.endsWith('.md')) { continue; }
+                    const fileUri = vscode.Uri.joinPath(skillDirUri, fileName);
+                    const fileRaw = await vscode.workspace.fs.readFile(fileUri);
+                    companionFiles.push({
+                        name: fileName,
+                        content: Buffer.from(fileRaw).toString('utf-8'),
+                    });
+                }
+            } catch { /* directory read failed — skip companions */ }
 
             skills.push(buildSkillInfo(
                 parsed.name || skillDirName,
@@ -172,6 +191,7 @@ async function discoverSkillsInDir(
                 pluginVersion,
                 marketplace,
                 skillMdUri.fsPath,
+                companionFiles,
             ));
         } catch {
             // SKILL.md doesn't exist in this dir, skip

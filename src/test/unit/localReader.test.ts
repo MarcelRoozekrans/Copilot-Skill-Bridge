@@ -1,5 +1,6 @@
 import * as assert from 'assert';
 import { resolveClaudeCachePath, parsePluginJson, buildSkillInfo, parseMcpJson } from '../../localReader';
+import { CompanionFile } from '../../types';
 import * as os from 'os';
 import * as path from 'path';
 
@@ -48,6 +49,35 @@ describe('buildSkillInfo', () => {
         assert.strictEqual(result.name, 'brainstorming');
         assert.strictEqual(result.source, 'local');
         assert.strictEqual(result.pluginVersion, '4.3.1');
+    });
+});
+
+describe('buildSkillInfo with companion files', () => {
+    it('should include companionFiles when provided', () => {
+        const companions: CompanionFile[] = [
+            { name: 'visual-criteria.md', content: '# Criteria' },
+        ];
+        const result = buildSkillInfo(
+            'regression-test', 'desc', '# SKILL', 'plugin', '1.0.0', 'market', '/path',
+            companions
+        );
+        assert.strictEqual(result.companionFiles?.length, 1);
+        assert.strictEqual(result.companionFiles![0].name, 'visual-criteria.md');
+    });
+
+    it('should have undefined companionFiles when not provided', () => {
+        const result = buildSkillInfo(
+            'simple', 'desc', '# SKILL', 'plugin', '1.0.0', 'market', '/path'
+        );
+        assert.strictEqual(result.companionFiles, undefined);
+    });
+
+    it('should have undefined companionFiles when empty array provided', () => {
+        const result = buildSkillInfo(
+            'simple', 'desc', '# SKILL', 'plugin', '1.0.0', 'market', '/path',
+            []
+        );
+        assert.strictEqual(result.companionFiles, undefined);
     });
 });
 

@@ -3,7 +3,7 @@ import { SkillInfo, PluginInfo, ConversionResult, McpServerInfo, BulkImportResul
 import { convertSkillContent, generateInstructionsFile, generatePromptFile, generateFullPromptFile, generateRegistryEntry, OutputFormat } from './converter';
 import { parseSkillFrontmatter } from './parser';
 import { computeHash, loadManifest, saveManifest, recordImport, removeSkillRecord, recordMcpImport, removeMcpRecord, isMcpServerImported, setSkillEmbedded, isSkillImported } from './stateManager';
-import { writeInstructionsFile, writePromptFile, updateCopilotInstructions, removeSkillFiles } from './fileWriter';
+import { writeInstructionsFile, writePromptFile, updateCopilotInstructions, removeSkillFiles, writeCompanionFiles } from './fileWriter';
 import { discoverLocalPlugins } from './localReader';
 import { discoverRemotePlugins, GitHubApiError } from './remoteReader';
 import { convertMcpServers } from './mcpConverter';
@@ -96,6 +96,14 @@ export class ImportService {
 
         if (useLm) {
             convertedBody = await convertWithLM(convertedBody);
+        }
+
+        if (skill.companionFiles?.length) {
+            for (const companion of skill.companionFiles) {
+                const escapedName = companion.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                const linkPattern = new RegExp(`\\]\\(${escapedName}\\)`, 'g');
+                convertedBody = convertedBody.replace(linkPattern, `](${skill.name}-${companion.name})`);
+            }
         }
 
         return {
@@ -274,6 +282,15 @@ export class ImportService {
                 ? generateFullPromptFile(skill.name, skill.description, conversion.convertedBody)
                 : conversion.promptContent;
             await writePromptFile(this.workspaceUri, skill.name, promptContent);
+        }
+
+        if (skill.companionFiles?.length) {
+            await writeCompanionFiles(
+                this.workspaceUri,
+                skill.name,
+                skill.companionFiles,
+                (content) => convertSkillContent(content, outputFormats as OutputFormat[])
+            );
         }
 
         let manifest = await loadManifest(this.workspaceUri);

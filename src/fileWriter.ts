@@ -98,10 +98,37 @@ export async function updateCopilotInstructions(
     await vscode.workspace.fs.writeFile(instructionsUri, Buffer.from(merged, 'utf-8'));
 }
 
+export async function writeCompanionFiles(
+    workspaceUri: vscode.Uri,
+    skillName: string,
+    companionFiles: Array<{ name: string; content: string }>,
+    convertContent: (content: string) => string
+): Promise<void> {
+    const dir = vscode.Uri.joinPath(workspaceUri, '.github', 'instructions');
+    await vscode.workspace.fs.createDirectory(dir);
+    for (const file of companionFiles) {
+        const converted = convertContent(file.content);
+        const fileUri = vscode.Uri.joinPath(dir, `${skillName}-${file.name}`);
+        await vscode.workspace.fs.writeFile(fileUri, Buffer.from(converted, 'utf-8'));
+    }
+}
+
 export async function removeSkillFiles(workspaceUri: vscode.Uri, skillName: string): Promise<void> {
-    const instructionsFile = vscode.Uri.joinPath(workspaceUri, '.github', 'instructions', `${skillName}.instructions.md`);
+    const instructionsDir = vscode.Uri.joinPath(workspaceUri, '.github', 'instructions');
+    const instructionsFile = vscode.Uri.joinPath(instructionsDir, `${skillName}.instructions.md`);
     const promptFile = vscode.Uri.joinPath(workspaceUri, '.github', 'prompts', `${skillName}.prompt.md`);
 
     try { await vscode.workspace.fs.delete(instructionsFile); } catch { /* may not exist */ }
     try { await vscode.workspace.fs.delete(promptFile); } catch { /* may not exist */ }
+
+    // Remove companion files (prefixed with skillName-)
+    try {
+        const entries = await vscode.workspace.fs.readDirectory(instructionsDir);
+        for (const [fileName] of entries) {
+            if (fileName.startsWith(`${skillName}-`) && fileName.endsWith('.md')) {
+                const fileUri = vscode.Uri.joinPath(instructionsDir, fileName);
+                try { await vscode.workspace.fs.delete(fileUri); } catch { /* skip */ }
+            }
+        }
+    } catch { /* instructions dir may not exist */ }
 }
