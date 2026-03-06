@@ -149,6 +149,37 @@ describe('convertSkillContent', () => {
         const result = convertSkillContent(input);
         assert.strictEqual(result, input);
     });
+
+    it('should replace "claude mcp add" commands', () => {
+        const input = 'claude mcp add playwright -- npx @playwright/mcp@latest --caps=testing';
+        const result = convertSkillContent(input);
+        assert.ok(!result.includes('claude mcp add'), 'Should not contain claude mcp add');
+    });
+
+    it('should replace "claude install" commands', () => {
+        const input = 'claude install gh:MarcelRoozekrans/LongtermMemory-MCP';
+        const result = convertSkillContent(input);
+        assert.ok(!result.includes('claude install'), 'Should not contain claude install');
+    });
+
+    it('should replace "claude plugin install" commands', () => {
+        const input = 'claude plugin install roslyn-codegraph';
+        const result = convertSkillContent(input);
+        assert.ok(!result.includes('claude plugin install'), 'Should not contain claude plugin install');
+    });
+
+    it('should handle "subagent-driven-development" as a skill name gracefully', () => {
+        const input = 'When subagent-driven-development dispatches an agent';
+        const result = convertSkillContent(input);
+        assert.ok(!result.includes('subtasks-driven-development'), 'Should not mangle hyphenated skill names');
+    });
+
+    it('should still replace standalone "subagent" and "subagents"', () => {
+        const input = 'Dispatch a subagent for this work. Multiple subagents run in parallel.';
+        const result = convertSkillContent(input);
+        assert.ok(!result.includes('subagent'), 'Should replace standalone subagent');
+        assert.ok(result.includes('subtask'));
+    });
 });
 
 describe('generateInstructionsFile', () => {

@@ -9,7 +9,7 @@ const CONVERSION_RULES: Array<{ pattern: RegExp; replacement: string }> = [
     { pattern: /\bTodoWrite\b/g, replacement: 'task checklist' },
     { pattern: /\buse the Agent tool\b/gi, replacement: 'break into subtasks and handle sequentially' },
     { pattern: /\bAgent tool\b/gi, replacement: 'subtask delegation' },
-    { pattern: /\bsubagents?\b/gi, replacement: 'subtasks' },
+    { pattern: /\bsubagents?\b(?!-)/gi, replacement: 'subtasks' },
     { pattern: /\bSkill tool\b/gi, replacement: 'instructions file' },
     { pattern: /\bRead tool\b/gi, replacement: 'file reading' },
     { pattern: /\bEdit tool\b/gi, replacement: 'file editing' },
@@ -21,6 +21,11 @@ const CONVERSION_RULES: Array<{ pattern: RegExp; replacement: string }> = [
     // Plan mode
     { pattern: /\bEnterPlanMode\b/g, replacement: 'present your plan to the user for approval' },
     { pattern: /\bExitPlanMode\b/g, replacement: 'finalize the plan and proceed' },
+
+    // Claude CLI commands
+    { pattern: /^claude mcp add\s+(\S+)\s+--\s+(.+)$/gm, replacement: 'Configure MCP server "$1" in .vscode/settings.json: $2' },
+    { pattern: /^claude install\s+gh:(.+)$/gm, replacement: 'Install via CopilotBridge marketplace: $1' },
+    { pattern: /^claude plugin install\s+(.+)$/gm, replacement: 'Import plugin "$1" from the CopilotBridge sidebar' },
 
     // Claude-specific paths and files
     { pattern: /\bCLAUDE\.md\b/g, replacement: '.github/copilot-instructions.md' },
