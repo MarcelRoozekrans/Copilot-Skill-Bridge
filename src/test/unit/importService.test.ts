@@ -698,6 +698,33 @@ describe('ImportService.resolveDependencies', () => {
         assert.strictEqual(missingSkills.length, 0);
     });
 
+    it('should auto-include meta-orchestrator skills from dependency repos', async () => {
+        const mySkill = makeSkill({ name: 'regression-test', content: '# Regression test skill' });
+        const metaSkill = makeSkill({
+            name: 'using-superpowers',
+            content: 'You MUST invoke relevant skills BEFORE any response. Check skills before every response.',
+        });
+        const normalSkill = makeSkill({ name: 'brainstorming', content: '# Brainstorming' });
+
+        const plugins: PluginInfo[] = [
+            { name: 'my-ext', description: '', version: '1', skills: [mySkill], marketplace: 'user/extensions', source: 'remote' },
+            { name: 'superpowers', description: '', version: '1', skills: [metaSkill, normalSkill], marketplace: 'obra/superpowers', source: 'remote' },
+        ];
+        service.setPlugins(plugins);
+        service.setDepGraph({
+            edges: new Map([
+                ['user/extensions', ['obra/superpowers-marketplace']],
+                ['obra/superpowers-marketplace', ['obra/superpowers']],
+            ]),
+            roots: ['user/extensions'],
+        });
+
+        const { missingSkills } = await service.resolveDependencies(mySkill);
+        const names = missingSkills.map(s => s.name);
+        assert.ok(names.includes('using-superpowers'), 'Meta-skill should be auto-included');
+        assert.ok(!names.includes('brainstorming'), 'Normal skill should not be auto-included');
+    });
+
     it('should return empty when all dependencies are already imported', async () => {
         // Simulate an already-imported manifest
         const manifestContent = JSON.stringify({

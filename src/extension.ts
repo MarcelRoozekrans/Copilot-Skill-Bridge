@@ -204,7 +204,7 @@ export async function activate(context: vscode.ExtensionContext) {
     // Fast refresh: only reload manifest, reuse cached plugins
     async function refreshManifest() {
         const manifest = await loadManifest(workspaceUri);
-        treeProvider.setData(importService.getPlugins(), manifest);
+        treeProvider.setData(importService.getPlugins(), manifest, importService.getDepGraph());
     }
 
     // Full refresh: re-discover plugins from local cache and remote repos
@@ -461,7 +461,7 @@ export async function activate(context: vscode.ExtensionContext) {
             const remaining = importService.getPlugins().filter(p => p.marketplace !== repo);
             importService.setPlugins(remaining);
             const updatedManifest = await loadManifest(workspaceUri);
-            treeProvider.setData(remaining, updatedManifest);
+            treeProvider.setData(remaining, updatedManifest, importService.getDepGraph());
         }),
 
         vscode.commands.registerCommand('copilotSkillBridge.importAllFromMarketplace', async (item?: SkillTreeItem) => {
@@ -511,7 +511,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
             // Update sidebar immediately without full remote re-fetch
             const updatedManifest = await loadManifest(workspaceUri);
-            treeProvider.setData(importService.getPlugins(), updatedManifest);
+            treeProvider.setData(importService.getPlugins(), updatedManifest, importService.getDepGraph());
         }),
     );
 
