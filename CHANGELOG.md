@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.21.1](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/compare/copilot-skill-bridge-v0.21.0...copilot-skill-bridge-v0.21.1) (2026-03-07)
+
+
+### Bug Fixes
+
+* record marketplace repos in manifest for update tracking ([a0ee480](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/commit/a0ee4800a2299077f4f23c2af687426d178ceaa5))
+* record marketplace repos in manifest for update tracking ([735629c](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/commit/735629c2035d846d58b5cfb4aa7f77382639ceec))
+
 ## [0.21.0](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/compare/copilot-skill-bridge-v0.20.5...copilot-skill-bridge-v0.21.0) (2026-03-07)
 
 
