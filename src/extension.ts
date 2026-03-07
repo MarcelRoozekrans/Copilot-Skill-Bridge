@@ -4,6 +4,7 @@ import { ImportService } from './importService';
 import { UpdateWatcher } from './updateWatcher';
 import { loadManifest } from './stateManager';
 import { DiscoveryError } from './types';
+import { installPluginInClaudeCache, fetchPluginJson } from './claudeInstaller';
 
 let updateWatcher: UpdateWatcher | undefined;
 
@@ -167,6 +168,9 @@ export async function activate(context: vscode.ExtensionContext) {
             'copilotSkillBridge.removeAllSkills',
             'copilotSkillBridge.importAllFromMarketplace',
             'copilotSkillBridge.removeAllFromMarketplace',
+            'copilotSkillBridge.installInClaude',
+            'copilotSkillBridge.installPluginInClaude',
+            'copilotSkillBridge.installAllInClaude',
         ];
         for (const cmd of workspaceCommands) {
             context.subscriptions.push(
@@ -516,6 +520,112 @@ export async function activate(context: vscode.ExtensionContext) {
             // Update sidebar immediately without full remote re-fetch
             const updatedManifest = await loadManifest(workspaceUri);
             treeProvider.setData(importService.getPlugins(), updatedManifest, importService.getDepGraph());
+        }),
+
+        vscode.commands.registerCommand('copilotSkillBridge.installInClaude', async (item?: SkillTreeItem) => {
+            const skill = item?.skillInfo;
+            if (!skill) {
+                vscode.window.showWarningMessage('Select a skill from the Copilot Skill Bridge sidebar.');
+                return;
+            }
+            const plugin = importService.getPlugins().find(
+                p => p.name === skill.pluginName && p.marketplace === skill.marketplace
+            );
+            if (!plugin) {
+                vscode.window.showErrorMessage(`Could not find parent plugin for skill "${skill.name}".`);
+                return;
+            }
+            const { cachePath } = getConfig();
+            try {
+                const pluginJson = await fetchPluginJson(plugin);
+                await installPluginInClaudeCache(plugin, cachePath, pluginJson);
+                vscode.window.showInformationMessage(`Installed "${plugin.name}" in Claude Code.`);
+            } catch (err) {
+                const msg = err instanceof Error ? err.message : String(err);
+                vscode.window.showErrorMessage(`Install in Claude Code failed for "${plugin.name}": ${msg}`);
+            }
+        }),
+
+        vscode.commands.registerCommand('copilotSkillBridge.installPluginInClaude', async (item?: SkillTreeItem) => {
+            const plugin = item?.pluginInfo;
+            if (!plugin) {
+                vscode.window.showWarningMessage('Select a plugin from the Copilot Skill Bridge sidebar.');
+                return;
+            }
+            const { cachePath } = getConfig();
+            try {
+                const pluginJson = await fetchPluginJson(plugin);
+                await installPluginInClaudeCache(plugin, cachePath, pluginJson);
+                vscode.window.showInformationMessage(`Installed "${plugin.name}" in Claude Code.`);
+            } catch (err) {
+                const msg = err instanceof Error ? err.message : String(err);
+                vscode.window.showErrorMessage(`Install in Claude Code failed for "${plugin.name}": ${msg}`);
+            }
+        }),
+
+        vscode.commands.registerCommand('copilotSkillBridge.installAllInClaude', async (item?: SkillTreeItem) => {
+            const repo = item?.marketplaceRepo;
+            if (!repo) {
+                vscode.window.showWarningMessage('Select a marketplace from the Copilot Skill Bridge sidebar.');
+                return;
+            }
+            const directPlugins = importService.getPluginsByMarketplace(repo);
+            const plugins = directPlugins.length > 0
+                ? directPlugins
+                : importService.getPluginsByMarketplaceTransitive(repo);
+
+            if (plugins.length === 0) {
+                vscode.window.showWarningMessage(`No plugins found for marketplace "${repo}".`);
+                return;
+            }
+
+            const choice = await vscode.window.showWarningMessage(
+                `Install ${plugins.length} plugin(s) from "${repo}" into Claude Code?`,
+                { modal: true },
+                'Install'
+            );
+            if (choice !== 'Install') { return; }
+
+            const { cachePath } = getConfig();
+            let installed = 0;
+            let failed = 0;
+
+            await vscode.window.withProgress(
+                {
+                    location: vscode.ProgressLocation.Notification,
+                    title: `Installing plugins from "${repo}" into Claude Code`,
+                    cancellable: true,
+                },
+                async (progress, token) => {
+                    for (let i = 0; i < plugins.length; i++) {
+                        if (token.isCancellationRequested) { break; }
+                        const plugin = plugins[i];
+                        progress.report({
+                            message: `${i + 1}/${plugins.length}: ${plugin.name}`,
+                            increment: (1 / plugins.length) * 100,
+                        });
+                        try {
+                            const pluginJson = await fetchPluginJson(plugin);
+                            await installPluginInClaudeCache(plugin, cachePath, pluginJson);
+                            installed++;
+                        } catch (err) {
+                            failed++;
+                            const msg = err instanceof Error ? err.message : String(err);
+                            console.error(`[CopilotSkillBridge] Failed to install "${plugin.name}" in Claude Code: ${msg}`);
+                        }
+                    }
+                }
+            );
+
+            if (failed === 0) {
+                vscode.window.showInformationMessage(
+                    `Installed ${installed} plugin(s) from "${repo}" in Claude Code.`
+                );
+            } else {
+                vscode.window.showWarningMessage(
+                    `Installed ${installed} plugin(s), ${failed} failed from "${repo}" in Claude Code.`
+                );
+            }
         }),
     );
 
