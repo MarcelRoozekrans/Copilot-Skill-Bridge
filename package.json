@@ -149,6 +149,21 @@
         "command": "copilotSkillBridge.updateSkill",
         "title": "Update Skill",
         "icon": "$(cloud-download)"
+      },
+      {
+        "command": "copilotSkillBridge.installInClaude",
+        "title": "Install in Claude Code",
+        "icon": "$(desktop-download)"
+      },
+      {
+        "command": "copilotSkillBridge.installPluginInClaude",
+        "title": "Install in Claude Code",
+        "icon": "$(desktop-download)"
+      },
+      {
+        "command": "copilotSkillBridge.installAllInClaude",
+        "title": "Install All in Claude Code",
+        "icon": "$(desktop-download)"
       }
     ],
     "menus": {
@@ -257,6 +272,21 @@
           "command": "copilotSkillBridge.openSourceRepo",
           "when": "view == skillBridgeExplorer && viewItem == plugin",
           "group": "3_navigation"
+        },
+        {
+          "command": "copilotSkillBridge.installInClaude",
+          "when": "view == skillBridgeExplorer && viewItem =~ /^skill-/ && viewItem != skill-incompatible",
+          "group": "1_actions"
+        },
+        {
+          "command": "copilotSkillBridge.installPluginInClaude",
+          "when": "view == skillBridgeExplorer && viewItem == plugin",
+          "group": "1_actions"
+        },
+        {
+          "command": "copilotSkillBridge.installAllInClaude",
+          "when": "view == skillBridgeExplorer && viewItem == marketplace",
+          "group": "1_actions"
         }
       ],
       "view/title": [
