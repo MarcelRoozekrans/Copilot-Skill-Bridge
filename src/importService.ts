@@ -308,6 +308,40 @@ export class ImportService {
             }
         }
 
+        // Auto-include meta-orchestrator skills from transitive dependency repos
+        // (e.g. "using-superpowers" that must always be active)
+        const importingMarketplaces = new Set(compatibleSkills.map(s => s.pluginName)
+            .map(pn => this.allPlugins.find(p => p.name === pn)?.marketplace)
+            .filter((m): m is string => !!m));
+        const depRepos = new Set<string>();
+        const depQueue: string[] = [];
+        for (const mp of importingMarketplaces) {
+            depQueue.push(...(this._depGraph.edges.get(mp) ?? []));
+        }
+        while (depQueue.length > 0) {
+            const repo = depQueue.shift()!;
+            if (depRepos.has(repo)) { continue; }
+            depRepos.add(repo);
+            for (const sub of this._depGraph.edges.get(repo) ?? []) {
+                depQueue.push(sub);
+            }
+        }
+        for (const repo of depRepos) {
+            for (const plugin of this.allPlugins.filter(p => p.marketplace === repo)) {
+                for (const skill of plugin.skills) {
+                    if (importingNames.has(skill.name)) { continue; }
+                    if (isSkillImported(manifest, skill.name)) { continue; }
+                    if (isMetaOrchestratorSkill(skill)) {
+                        const compat = analyzeCompatibility(skill, [], {}, {});
+                        if (compat.compatible) {
+                            depSkills.push(skill);
+                            importingNames.add(skill.name);
+                        }
+                    }
+                }
+            }
+        }
+
         // Find MCP servers from dependency plugins that aren't already included
         const existingMcpNames = new Set((mcpServers ?? []).map(s => s.name));
         for (const depSkill of depSkills) {
@@ -325,15 +359,6 @@ export class ImportService {
         const allSkillsToImport = [...compatibleSkills, ...depSkills];
         const allMcpServers = [...(mcpServers ?? []), ...depMcpServers];
 
-        const conversions: Array<{ skill: SkillInfo; conversion: ConversionResult }> = [];
-        for (const skill of allSkillsToImport) {
-            conversions.push({
-                skill,
-                conversion: await this.convertSkill(skill, outputFormats as OutputFormat[], useLm),
-            });
-        }
-
-        const skillNames = allSkillsToImport.map(s => s.name);
         const depsNote = depSkills.length > 0
             ? ` (+${depSkills.length} dependencies: ${depSkills.map(s => s.name).join(', ')})`
             : '';
@@ -363,12 +388,45 @@ export class ImportService {
                 cancellable: true,
             },
             async (progress, token) => {
-                const total = allSkillsToImport.length + allMcpServers.length;
-                const increment = total > 0 ? 100 / total : 100;
+                const skillCount = allSkillsToImport.length;
+                const totalSteps = skillCount + allMcpServers.length;
+                // Reserve 60% for conversion (the slow part with LM), 40% for writing
+                const conversionWeight = useLm ? 60 : 10;
+                const writeWeight = 100 - conversionWeight;
 
-                for (const { skill, conversion } of conversions) {
+                // Convert skills in parallel batches for speed (LM calls are the bottleneck)
+                const BATCH_SIZE = 5;
+                const conversions = new Map<string, ConversionResult>();
+                let converted = 0;
+                for (let i = 0; i < skillCount; i += BATCH_SIZE) {
                     if (token.isCancellationRequested) { break; }
-                    progress.report({ message: `${skill.name}...`, increment });
+                    const batch = allSkillsToImport.slice(i, i + BATCH_SIZE);
+                    progress.report({
+                        message: `Converting skills (${converted}/${skillCount})...`,
+                        increment: batch.length / skillCount * conversionWeight,
+                    });
+                    const results = await Promise.allSettled(
+                        batch.map(skill => this.convertSkill(skill, outputFormats as OutputFormat[], useLm))
+                    );
+                    for (let j = 0; j < batch.length; j++) {
+                        const r = results[j];
+                        if (r.status === 'fulfilled') {
+                            conversions.set(batch[j].name, r.value);
+                        } else {
+                            const msg = r.reason instanceof Error ? r.reason.message : String(r.reason);
+                            result.failed.push({ name: batch[j].name, error: msg });
+                        }
+                    }
+                    converted += batch.length;
+                }
+
+                // Write files sequentially (manifest updates must be serial)
+                const writeIncrement = totalSteps > 0 ? writeWeight / totalSteps : writeWeight;
+                for (const skill of allSkillsToImport) {
+                    if (token.isCancellationRequested) { break; }
+                    const conversion = conversions.get(skill.name);
+                    if (!conversion) { continue; } // failed during conversion
+                    progress.report({ message: `Writing ${skill.name}...`, increment: writeIncrement });
 
                     try {
                         await this.writeSkillFiles(skill, conversion, outputFormats, generateRegistry);
@@ -382,7 +440,7 @@ export class ImportService {
                 if (allMcpServers.length > 0 && !token.isCancellationRequested) {
                     for (const server of allMcpServers) {
                         if (token.isCancellationRequested) { break; }
-                        progress.report({ message: `MCP: ${server.name}...`, increment });
+                        progress.report({ message: `MCP: ${server.name}...`, increment: writeIncrement });
 
                         try {
                             const manifest = await loadManifest(this.workspaceUri);
@@ -720,10 +778,38 @@ export class ImportService {
             }
         }
 
+        // Auto-include meta-orchestrator skills from transitive dependency repos
+        const skillPlugin = this.allPlugins.find(p => p.skills.some(s => s.name === skill.name));
+        if (skillPlugin?.marketplace) {
+            const depRepos = new Set<string>();
+            const queue = [...(this._depGraph.edges.get(skillPlugin.marketplace) ?? [])];
+            while (queue.length > 0) {
+                const repo = queue.shift()!;
+                if (depRepos.has(repo)) { continue; }
+                depRepos.add(repo);
+                for (const sub of this._depGraph.edges.get(repo) ?? []) {
+                    queue.push(sub);
+                }
+            }
+            for (const repo of depRepos) {
+                for (const p of this.allPlugins.filter(pl => pl.marketplace === repo)) {
+                    for (const s of p.skills) {
+                        if (s.name === skill.name) { continue; }
+                        if (isSkillImported(manifest, s.name)) { continue; }
+                        if (missingSkills.some(d => d.name === s.name)) { continue; }
+                        if (isMetaOrchestratorSkill(s)) {
+                            const compat = analyzeCompatibility(s, [], {}, {});
+                            if (compat.compatible) {
+                                missingSkills.push(s);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         // Find missing MCP servers from the same plugin
-        const plugin = this.allPlugins.find(p =>
-            p.skills.some(s => s.name === skill.name)
-        );
+        const plugin = skillPlugin;
         if (plugin?.mcpServers) {
             for (const server of plugin.mcpServers) {
                 if (!isMcpServerImported(manifest, server.name)) {
