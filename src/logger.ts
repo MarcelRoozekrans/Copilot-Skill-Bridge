@@ -33,9 +33,13 @@ export function initLogger(channel: vscode.OutputChannel): Logger {
     return instance;
 }
 
+const noopChannel = {
+    appendLine: () => {},
+} as unknown as vscode.OutputChannel;
+
 export function getLogger(): Logger {
     if (!instance) {
-        throw new Error('Logger not initialized. Call initLogger() first.');
+        return new Logger(noopChannel);
     }
     return instance;
 }
