@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { SkillInfo, PluginInfo, ConversionResult, McpServerInfo, BulkImportResult, DiscoveryResult, DiscoveryError, DependencyGraph } from './types';
+import { SkillInfo, PluginInfo, ConversionResult, McpServerInfo, BulkImportResult, DiscoveryResult, DiscoveryError, DependencyGraph, BridgeManifest } from './types';
 import { convertSkillContent, generateInstructionsFile, generatePromptFile, generateFullPromptFile, generateRegistryEntry, OutputFormat } from './converter';
 import { parseSkillFrontmatter } from './parser';
 import { computeHash, loadManifest, saveManifest, recordImport, removeSkillRecord, recordMcpImport, removeMcpRecord, isMcpServerImported, setSkillEmbedded, isSkillImported, recordMarketplace } from './stateManager';
@@ -11,16 +11,10 @@ import { convertMcpServers } from './mcpConverter';
 import { readMcpJson, writeMcpJson, mergeMcpConfigs, removeServerFromConfig } from './mcpWriter';
 import { analyzeCompatibility, extractSkillDependencies } from './compatAnalyzer';
 import { convertWithLM } from './lmConverter';
+import { getLogger } from './logger';
 
-let outputChannel: vscode.OutputChannel | undefined;
-function getOutputChannel(): vscode.OutputChannel {
-    if (!outputChannel) {
-        outputChannel = vscode.window.createOutputChannel('Copilot Skill Bridge');
-    }
-    return outputChannel;
-}
 function log(msg: string): void {
-    getOutputChannel().appendLine(`[${new Date().toISOString()}] ${msg}`);
+    getLogger().debug('importService', msg);
 }
 
 const META_ORCHESTRATOR_PATTERNS: RegExp[] = [
@@ -224,9 +218,14 @@ export class ImportService {
             if (!choice) { return; }
 
             if (choice === 'Install All') {
+                let depManifest = await loadManifest(this.workspaceUri);
                 for (const depSkill of missingSkills) {
                     const depConversion = await this.convertSkill(depSkill, outputFormats as OutputFormat[], useLm);
-                    await this.writeSkillFiles(depSkill, depConversion, outputFormats, generateRegistry);
+                    depManifest = await this.writeSkillFiles(depSkill, depConversion, outputFormats, depManifest);
+                }
+                await saveManifest(this.workspaceUri, depManifest);
+                if (generateRegistry) {
+                    await this.updateRegistry(depManifest, outputFormats as OutputFormat[]);
                 }
                 for (const server of missingMcpServers) {
                     await this.importMcpServer(server);
@@ -234,7 +233,12 @@ export class ImportService {
             }
         }
 
-        await this.writeSkillFiles(skill, conversion, outputFormats, generateRegistry);
+        let manifest = await loadManifest(this.workspaceUri);
+        manifest = await this.writeSkillFiles(skill, conversion, outputFormats, manifest);
+        await saveManifest(this.workspaceUri, manifest);
+        if (generateRegistry) {
+            await this.updateRegistry(manifest, outputFormats as OutputFormat[]);
+        }
         vscode.window.showInformationMessage(`Imported skill: ${skill.name}`);
     }
 
@@ -255,7 +259,12 @@ export class ImportService {
         if (choice !== 'Update') { return; }
 
         const conversion = await this.convertSkill(skill, outputFormats as OutputFormat[], useLm);
-        await this.writeSkillFiles(skill, conversion, outputFormats, generateRegistry);
+        let manifest = await loadManifest(this.workspaceUri);
+        manifest = await this.writeSkillFiles(skill, conversion, outputFormats, manifest);
+        await saveManifest(this.workspaceUri, manifest);
+        if (generateRegistry) {
+            await this.updateRegistry(manifest, outputFormats as OutputFormat[]);
+        }
         vscode.window.showInformationMessage(`Updated skill: ${skill.name}`);
     }
 
@@ -422,6 +431,9 @@ export class ImportService {
                 }
 
                 // Write files sequentially (manifest updates must be serial)
+                // Load manifest once before the loop
+                let manifest = await loadManifest(this.workspaceUri);
+
                 const writeIncrement = totalSteps > 0 ? writeWeight / totalSteps : writeWeight;
                 for (const skill of allSkillsToImport) {
                     if (token.isCancellationRequested) { break; }
@@ -430,7 +442,7 @@ export class ImportService {
                     progress.report({ message: `Writing ${skill.name}...`, increment: writeIncrement });
 
                     try {
-                        await this.writeSkillFiles(skill, conversion, outputFormats, generateRegistry);
+                        manifest = await this.writeSkillFiles(skill, conversion, outputFormats, manifest);
                         result.imported.push(skill.name);
                     } catch (err) {
                         const msg = err instanceof Error ? err.message : String(err);
@@ -438,21 +450,27 @@ export class ImportService {
                     }
                 }
 
+                // MCP servers — use same manifest
                 if (allMcpServers.length > 0 && !token.isCancellationRequested) {
                     for (const server of allMcpServers) {
                         if (token.isCancellationRequested) { break; }
                         progress.report({ message: `MCP: ${server.name}...`, increment: writeIncrement });
 
                         try {
-                            const manifest = await loadManifest(this.workspaceUri);
                             if (!isMcpServerImported(manifest, server.name)) {
-                                await this.importMcpServer(server);
+                                manifest = await this.importMcpServerWithManifest(server, manifest);
                             }
                         } catch (err) {
                             const msg = err instanceof Error ? err.message : String(err);
                             result.failed.push({ name: `MCP:${server.name}`, error: msg });
                         }
                     }
+                }
+
+                // Save once and update registry once
+                await saveManifest(this.workspaceUri, manifest);
+                if (generateRegistry) {
+                    await this.updateRegistry(manifest, outputFormats as OutputFormat[]);
                 }
             }
         );
@@ -474,8 +492,8 @@ export class ImportService {
         skill: SkillInfo,
         conversion: ConversionResult,
         outputFormats: string[],
-        generateRegistry: boolean
-    ): Promise<void> {
+        manifest: BridgeManifest
+    ): Promise<BridgeManifest> {
         const hash = computeHash(skill.content);
         const source = `${skill.pluginName}@${skill.marketplace}`;
 
@@ -501,7 +519,6 @@ export class ImportService {
             );
         }
 
-        let manifest = await loadManifest(this.workspaceUri);
         manifest = recordImport(manifest, skill.name, source, hash);
 
         if (isMetaOrchestratorSkill(skill)) {
@@ -524,14 +541,10 @@ export class ImportService {
             try {
                 const sha = await fetchLatestCommitSha(skill.marketplace);
                 manifest = recordMarketplace(manifest, skill.marketplace, sha);
-            } catch { /* non-critical — skip if fetch fails */ }
+            } catch (err) { getLogger().debug('importService.writeSkillFiles: marketplace SHA fetch failed', err); }
         }
 
-        await saveManifest(this.workspaceUri, manifest);
-
-        if (generateRegistry) {
-            await this.updateRegistry(manifest, outputFormats as OutputFormat[]);
-        }
+        return manifest;
     }
 
     async removeSkill(skillName: string, generateRegistry: boolean, outputFormats?: OutputFormat[]): Promise<void> {
@@ -678,7 +691,7 @@ export class ImportService {
         const instructionsFile = vscode.Uri.joinPath(
             this.workspaceUri, '.github', 'instructions', `${skillName}.instructions.md`
         );
-        try { await vscode.workspace.fs.delete(instructionsFile); } catch { /* may not exist */ }
+        try { await vscode.workspace.fs.delete(instructionsFile); } catch (err) { getLogger().debug('importService.unembedSkill: instructions file not found', err); }
 
         manifest = setSkillEmbedded(manifest, skillName, false);
         await saveManifest(this.workspaceUri, manifest);
@@ -691,7 +704,7 @@ export class ImportService {
         await this.updateRegistry(manifest, outputFormats);
     }
 
-    private async updateRegistry(manifest: import('./types').BridgeManifest, outputFormats?: OutputFormat[]): Promise<void> {
+    private async updateRegistry(manifest: BridgeManifest, outputFormats?: OutputFormat[]): Promise<void> {
         const allSkills = Object.keys(manifest.skills);
         const entries = allSkills
             .filter(name => manifest.skills[name].embedded === true)
@@ -730,6 +743,20 @@ export class ImportService {
             }
         }
         return this.allPlugins.filter(p => p.marketplace !== undefined && repos.has(p.marketplace));
+    }
+
+    private async importMcpServerWithManifest(
+        server: McpServerInfo,
+        manifest: BridgeManifest
+    ): Promise<BridgeManifest> {
+        const converted = convertMcpServers([server]);
+        const existing = await readMcpJson(this.workspaceUri);
+        const managedNames = Object.keys(manifest.mcpServers ?? {});
+        const merged = mergeMcpConfigs(existing, converted, managedNames);
+        await writeMcpJson(this.workspaceUri, merged);
+
+        const source = `${server.pluginName}@${server.marketplace}`;
+        return recordMcpImport(manifest, server.name, source);
     }
 
     async importMcpServer(server: McpServerInfo): Promise<void> {

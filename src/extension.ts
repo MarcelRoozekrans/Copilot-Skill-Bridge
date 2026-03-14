@@ -5,6 +5,7 @@ import { UpdateWatcher } from './updateWatcher';
 import { loadManifest, saveManifest, updateMarketplaceLastChecked } from './stateManager';
 import { DiscoveryError } from './types';
 import { installPluginInClaudeCache, fetchPluginJson } from './claudeInstaller';
+import { initLogger, getLogger } from './logger';
 
 let updateWatcher: UpdateWatcher | undefined;
 
@@ -20,6 +21,10 @@ class SkillContentProvider implements vscode.TextDocumentContentProvider {
 }
 
 export async function activate(context: vscode.ExtensionContext) {
+    const outputChannel = vscode.window.createOutputChannel('Copilot Skill Bridge');
+    context.subscriptions.push(outputChannel);
+    initLogger(outputChannel);
+
     const noWorkspace = 'Open a folder to use Copilot Skill Bridge.';
 
     // Register virtual document provider for skill previews
@@ -79,7 +84,8 @@ export async function activate(context: vscode.ExtensionContext) {
             try {
                 const results = await searchMarketplaces();
                 quickPick.items = makeItems(results);
-            } catch {
+            } catch (err) {
+                getLogger().debug('extension.addMarketplace: initial search failed', err);
                 quickPick.items = [{ label: MANUAL_ENTRY_LABEL, description: '', detail: 'Search unavailable — enter manually', alwaysShow: true }];
             }
             quickPick.busy = false;
@@ -95,8 +101,8 @@ export async function activate(context: vscode.ExtensionContext) {
                     try {
                         const results = await searchMarketplaces(value || undefined);
                         quickPick.items = makeItems(results);
-                    } catch {
-                        // Keep existing items on error
+                    } catch (err) {
+                        getLogger().debug('extension.addMarketplace: search update failed', err);
                     }
                     quickPick.busy = false;
                 }, 400);
@@ -267,7 +273,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
     // Don't block activation — refresh remotes in background, tree updates progressively
     refreshAll().catch(err => {
-        console.error('[CopilotSkillBridge] Initial refresh failed:', err);
+        getLogger().error('extension.refreshAll: initial refresh failed', err);
     });
 
     // Register workspace-dependent commands
@@ -455,8 +461,8 @@ export async function activate(context: vscode.ExtensionContext) {
             const { generateRegistry, outputFormats } = getConfig();
             try {
                 await importService.removeAllSkills(allSkills, generateRegistry, allMcpServers, outputFormats as import('./types').OutputFormat[]);
-            } catch {
-                // Best effort — continue removing marketplace from settings
+            } catch (err) {
+                getLogger().debug('extension.removeMarketplace: best-effort skill removal', err);
             }
 
             // Remove from settings
@@ -611,7 +617,7 @@ export async function activate(context: vscode.ExtensionContext) {
                         } catch (err) {
                             failed++;
                             const msg = err instanceof Error ? err.message : String(err);
-                            console.error(`[CopilotSkillBridge] Failed to install "${plugin.name}" in Claude Code: ${msg}`);
+                            getLogger().error(`extension.installAllInClaude: failed to install "${plugin.name}"`, err);
                         }
                     }
                 }
@@ -652,7 +658,7 @@ export async function activate(context: vscode.ExtensionContext) {
                 let manifest = await loadManifest(workspaceFolder.uri);
                 manifest = updateMarketplaceLastChecked(manifest, repo, newSha);
                 await saveManifest(workspaceFolder.uri, manifest);
-            } catch { /* non-critical */ }
+            } catch (err) { getLogger().debug('extension.onRemoteChange: manifest update failed', err); }
         }
 
         const choice = await vscode.window.showInformationMessage(
