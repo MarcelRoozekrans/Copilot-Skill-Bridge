@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.22.0](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/compare/copilot-skill-bridge-v0.21.2...copilot-skill-bridge-v0.22.0) (2026-03-14)
+
+
+### Features
+
+* add shared logger module with leveled output channel logging ([eadbe09](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/commit/eadbe0987cf7223f194b10293051cb168ced5e02))
+* structured error logging and batch manifest I/O ([ba0f6b3](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/commit/ba0f6b3a30001472cc4019d42e4dd730fe420bbf))
+
+
+### Bug Fixes
+
+* replace console.error with logger and use debug level for expected mcp.json miss ([7b366df](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/commit/7b366df3cd1023d91b38c1b8814a1607f907293b))
+* return noop logger when not initialized instead of throwing ([7583166](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/commit/7583166c39781577e6de93f24eb9a23d830f777c))
+
+
+### Performance
+
+* batch manifest I/O in importAllSkills — load once, save once ([e6a4719](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/commit/e6a4719a909feab3bfa0570a316485e0d64aa5ca))
+
+
+### Refactoring
+
+* add structured logging to all remaining bare catch blocks ([e5e4a3d](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/commit/e5e4a3db69d5979c07f394d3f81762c581ffca89))
+* add structured logging to fileWriter catch blocks ([03bbe38](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/commit/03bbe38566d5ddb07495fe8bce2aec87acef03e7))
+* add structured logging to localReader catch blocks ([d48ea08](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/commit/d48ea08ac93c9f9ce6f2a6a42d486dc320fbad93))
+* add structured logging to remoteReader catch blocks ([59c1b1f](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/commit/59c1b1f5a8ec5a7f4ddb7450a2675ab2bc3b63d8))
+* initialize shared logger in activate, replace importService private log ([3288297](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/commit/328829765633b70b7f140020eb7a37ee7efb17e9))
+
 ## [0.21.2](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/compare/copilot-skill-bridge-v0.21.1...copilot-skill-bridge-v0.21.2) (2026-03-14)
 
 
