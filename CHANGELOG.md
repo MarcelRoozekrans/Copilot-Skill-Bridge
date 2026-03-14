@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.21.2](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/compare/copilot-skill-bridge-v0.21.1...copilot-skill-bridge-v0.21.2) (2026-03-14)
+
+
+### Bug Fixes
+
+* default useLmConversion to false to reduce output noise ([99cafda](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/commit/99cafda6a40a816701d20738e347159c2ae634c0))
+* write companion files to same directory as parent skill ([5da6d9a](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/commit/5da6d9ae8b955ed476d04eae68f1de13e1fcdc9b))
+* write companion files to same directory as parent skill ([6e7e922](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/commit/6e7e9222eefa0c0c1eda318fbad5f52175592a20))
+
 ## [0.21.1](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/compare/copilot-skill-bridge-v0.21.0...copilot-skill-bridge-v0.21.1) (2026-03-07)
 
 
