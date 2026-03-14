@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { getLogger } from './logger';
 
 interface RegistryEntry {
     name: string;
@@ -89,8 +90,8 @@ export async function updateCopilotInstructions(
     try {
         const raw = await vscode.workspace.fs.readFile(instructionsUri);
         existing = Buffer.from(raw).toString('utf-8');
-    } catch {
-        // File doesn't exist yet
+    } catch (err) {
+        getLogger().debug('fileWriter.updateCopilotInstructions: file not found, creating new', err);
     }
 
     const section = buildRegistryTable(entries, hasPromptSkills);
@@ -120,8 +121,8 @@ export async function removeSkillFiles(workspaceUri: vscode.Uri, skillName: stri
     const instructionsFile = vscode.Uri.joinPath(instructionsDir, `${skillName}.instructions.md`);
     const promptFile = vscode.Uri.joinPath(workspaceUri, '.github', 'prompts', `${skillName}.prompt.md`);
 
-    try { await vscode.workspace.fs.delete(instructionsFile); } catch { /* may not exist */ }
-    try { await vscode.workspace.fs.delete(promptFile); } catch { /* may not exist */ }
+    try { await vscode.workspace.fs.delete(instructionsFile); } catch (err) { getLogger().debug('fileWriter.removeSkillFiles: instructions file not found', err); }
+    try { await vscode.workspace.fs.delete(promptFile); } catch (err) { getLogger().debug('fileWriter.removeSkillFiles: prompt file not found', err); }
 
     // Remove companion files (prefixed with skillName-) from both directories
     const promptsDir = vscode.Uri.joinPath(workspaceUri, '.github', 'prompts');
@@ -131,9 +132,9 @@ export async function removeSkillFiles(workspaceUri: vscode.Uri, skillName: stri
             for (const [fileName] of entries) {
                 if (fileName.startsWith(`${skillName}-`) && fileName.endsWith('.md')) {
                     const fileUri = vscode.Uri.joinPath(dir, fileName);
-                    try { await vscode.workspace.fs.delete(fileUri); } catch { /* skip */ }
+                    try { await vscode.workspace.fs.delete(fileUri); } catch (err) { getLogger().debug('fileWriter.removeSkillFiles: companion delete failed', err); }
                 }
             }
-        } catch { /* dir may not exist */ }
+        } catch (err) { getLogger().debug('fileWriter.removeSkillFiles: directory not found', err); }
     }
 }
