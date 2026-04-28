@@ -1,5 +1,8 @@
 # Copilot Skill Bridge
 
+[![GitHub Sponsors](https://img.shields.io/github/sponsors/MarcelRoozekrans?style=flat&logo=githubsponsors&color=ea4aaa&label=Sponsor)](https://github.com/sponsors/MarcelRoozekrans)
+
+
 Bridge Claude Code marketplace skills into GitHub Copilot.
 
 Copilot Skill Bridge discovers skills from local Claude plugin caches and remote GitHub repositories, converts Claude-specific references into Copilot-compatible formats, and writes prompt files that GitHub Copilot can use directly. It also detects skills that rely on Claude-only infrastructure and marks them as incompatible so you only import what actually works.
