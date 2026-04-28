@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.22.1](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/compare/copilot-skill-bridge-v0.22.0...copilot-skill-bridge-v0.22.1) (2026-04-28)
+
+
+### Documentation
+
+* add GitHub Sponsors badge to README ([533f836](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/commit/533f83675e38266d1b96296cf352e947a9cb9763))
+* add GitHub Sponsors badge to README ([9f775de](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/commit/9f775de99b00d8915639d6e31750609eb07d0f5c))
+
 ## [0.22.0](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/compare/copilot-skill-bridge-v0.21.2...copilot-skill-bridge-v0.22.0) (2026-03-14)
 
 
