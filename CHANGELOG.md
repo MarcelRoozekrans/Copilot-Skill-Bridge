@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.24.0](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/compare/copilot-skill-bridge-v0.23.1...copilot-skill-bridge-v0.24.0) (2026-05-04)
+
+
+### Features
+
+* split manifest into workspace + user-global stores ([c012199](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/commit/c012199226c4e2788b046e4bcce7d7ffd8862af2))
+* user-global manifest for user-scope skills ([abb60d9](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/commit/abb60d93c1400b5cc0e98a2eca115198c8f3ec0b))
+
+
+### Bug Fixes
+
+* skip copilot-instructions.md in skills-only mode ([95cf6fc](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/commit/95cf6fc81f3caeb2f88a1d348d691b8d010e059d))
+* skip copilot-instructions.md registry update in skills-only mode ([0033d92](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/commit/0033d928da9522b387752b96c321eaa8dfa345b5))
+
 ## [0.23.1](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/compare/copilot-skill-bridge-v0.23.0...copilot-skill-bridge-v0.23.1) (2026-05-04)
 
 
