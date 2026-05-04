@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.22.2](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/compare/copilot-skill-bridge-v0.22.1...copilot-skill-bridge-v0.22.2) (2026-05-04)
+
+
+### Bug Fixes
+
+* append .prompt.md to companion files in prompts dir ([749675f](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/commit/749675f1decc9b89423091b3bb08981862c58dd8))
+* append .prompt.md to companion files in prompts directory ([f7e79e5](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/commit/f7e79e511ac893aee539125480697e0134628d92))
+
 ## [0.22.1](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/compare/copilot-skill-bridge-v0.22.0...copilot-skill-bridge-v0.22.1) (2026-04-28)
 
 
