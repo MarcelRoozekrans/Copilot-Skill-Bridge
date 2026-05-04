@@ -202,6 +202,58 @@ describe('ImportService.writeSkillFiles prompt format', () => {
     });
 });
 
+describe('ImportService.writeSkillFiles skills format', () => {
+    const workspaceUri = { fsPath: '/tmp/test-workspace', path: '/tmp/test-workspace' } as any;
+    let service: ImportService;
+    const vscode = require('vscode');
+    let writtenFiles: Array<{ path: string; content: string }>;
+    let origWriteFile: any;
+    let origCreateDir: any;
+    let origShowInfo: any;
+
+    before(() => {
+        origWriteFile = vscode.workspace.fs.writeFile;
+        origCreateDir = vscode.workspace.fs.createDirectory;
+        origShowInfo = vscode.window.showInformationMessage;
+    });
+
+    beforeEach(() => {
+        service = new ImportService(workspaceUri);
+        writtenFiles = [];
+        vscode.workspace.fs.writeFile = async (uri: any, buf: Uint8Array) => {
+            writtenFiles.push({ path: uri.fsPath, content: Buffer.from(buf).toString('utf-8') });
+        };
+        vscode.workspace.fs.createDirectory = async () => {};
+        vscode.window.showInformationMessage = async () => 'Import';
+    });
+
+    afterEach(() => {
+        vscode.workspace.fs.writeFile = origWriteFile;
+        vscode.workspace.fs.createDirectory = origCreateDir;
+        vscode.window.showInformationMessage = origShowInfo;
+    });
+
+    it('writes SKILL.md when outputFormats=["skills"]', async () => {
+        const skill = makeSkill();
+        await service.importSkill(skill, ['skills'], false);
+        const skillFile = writtenFiles.find(f => f.path.endsWith('SKILL.md'));
+        assert.ok(skillFile, `expected SKILL.md write, got: ${writtenFiles.map(f => f.path).join(', ')}`);
+        assert.ok(skillFile!.content.includes('name: test-skill'));
+        assert.ok(!writtenFiles.some(f => f.path.endsWith('.instructions.md')));
+        assert.ok(!writtenFiles.some(f => f.path.endsWith('.prompt.md')));
+    });
+
+    it('writes companion files verbatim alongside SKILL.md', async () => {
+        const skill = makeSkill({
+            companionFiles: [{ name: 'helper.md', content: 'helper body' }],
+        });
+        await service.importSkill(skill, ['skills'], false);
+        const helper = writtenFiles.find(f => f.path.endsWith('helper.md') && !f.path.endsWith('SKILL.md'));
+        assert.ok(helper, 'helper.md should be written');
+        assert.ok(!writtenFiles.some(f => f.path.endsWith('test-skill-helper.md')));
+    });
+});
+
 describe('ImportService MCP methods', () => {
     const workspaceUri = { fsPath: '/tmp/test-workspace', path: '/tmp/test-workspace' } as any;
     let service: ImportService;
