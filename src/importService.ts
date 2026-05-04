@@ -758,6 +758,16 @@ export class ImportService {
     }
 
     private async updateRegistry(manifest: BridgeManifest, outputFormats?: OutputFormat[]): Promise<void> {
+        // The registry exists to point Copilot at legacy .github/instructions and
+        // .github/prompts paths. SKILL.md is auto-discovered, so when only 'skills'
+        // is selected the registry serves no purpose — skip the copilot-instructions.md write.
+        const skillsOnly = outputFormats !== undefined
+            && outputFormats.length > 0
+            && outputFormats.every(f => f === 'skills');
+        if (skillsOnly) {
+            return;
+        }
+
         const allSkills = Object.keys(manifest.skills);
         const entries = allSkills
             .filter(name => manifest.skills[name].embedded === true)

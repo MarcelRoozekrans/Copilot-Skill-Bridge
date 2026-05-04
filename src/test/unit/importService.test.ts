@@ -276,6 +276,22 @@ describe('ImportService.writeSkillFiles skills format', () => {
         assert.ok(writtenFiles.some(f => f.path.endsWith('using-superpowers.instructions.md')),
             'instructions file should still be written when instructions output is selected');
     });
+
+    it('does not write copilot-instructions.md in skills-only mode (generateRegistry=true)', async () => {
+        const skill = makeSkill();
+        await service.importSkill(skill, ['skills'], true);
+        assert.ok(writtenFiles.some(f => f.path.endsWith('SKILL.md')),
+            'SKILL.md should be written');
+        assert.ok(!writtenFiles.some(f => f.path.endsWith('copilot-instructions.md')),
+            `skills-only mode must not touch copilot-instructions.md; got: ${writtenFiles.map(f => f.path).join(', ')}`);
+    });
+
+    it('still writes copilot-instructions.md in mixed mode with generateRegistry=true', async () => {
+        const skill = makeSkill();
+        await service.importSkill(skill, ['skills', 'prompts'], true);
+        assert.ok(writtenFiles.some(f => f.path.endsWith('copilot-instructions.md')),
+            'copilot-instructions.md should still be written when prompts is also selected');
+    });
 });
 
 describe('ImportService.removeSkill skills format', () => {
