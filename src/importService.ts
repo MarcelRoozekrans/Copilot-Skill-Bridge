@@ -558,10 +558,12 @@ export class ImportService {
         const recordedScope = outputFormats.includes('skills') ? skillsScope : undefined;
         manifest = recordImport(manifest, skill.name, source, hash, recordedScope);
 
-        if (isMetaOrchestratorSkill(skill)) {
+        // The always-active hack only applies to legacy formats. With SKILL.md,
+        // model-driven invocation handles always-active behavior via description matching.
+        const hasLegacyFormat = outputFormats.includes('instructions') || outputFormats.includes('prompts');
+        if (isMetaOrchestratorSkill(skill) && hasLegacyFormat) {
             manifest = setSkillEmbedded(manifest, skill.name, true);
             await writeInstructionsFile(this.workspaceUri, skill.name, conversion.instructionsContent);
-            // Ensure companion files are co-located with the instructions file
             if (skill.companionFiles?.length) {
                 await writeCompanionFiles(
                     this.workspaceUri,
