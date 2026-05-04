@@ -147,6 +147,59 @@ describe('ImportService.convertSkill', () => {
         assert.ok(result.convertedBody.includes('test-skill-code-reviewer.prompt.md'),
             'target reference should be rewritten');
     });
+
+    it('does NOT apply tool-name conversion when outputFormats is skills-only', async () => {
+        const skill = makeSkill({
+            content: '---\nname: parent\n---\n\nUse the TodoWrite tool to track tasks. Reference CLAUDE.md and ~/.claude/skills/foo/SKILL.md.',
+        });
+        const result = await service.convertSkill(skill, ['skills']);
+        assert.ok(result.convertedBody.includes('TodoWrite'),
+            'TodoWrite should be preserved verbatim in skills-only mode');
+        assert.ok(result.convertedBody.includes('CLAUDE.md'),
+            'CLAUDE.md should be preserved verbatim in skills-only mode');
+        assert.ok(result.convertedBody.includes('~/.claude/skills'),
+            '~/.claude paths should be preserved verbatim in skills-only mode');
+        assert.ok(!result.convertedBody.includes('task checklist'),
+            'tool-name conversion must not run in skills-only mode');
+        assert.ok(!result.convertedBody.includes('[local config]'),
+            '~/.claude rewrite must not run in skills-only mode');
+    });
+
+    it('does NOT rewrite cross-references (superpowers:foo) when skills-only', async () => {
+        const skill = makeSkill({
+            content: '---\nname: parent\n---\n\nSee superpowers:code-reviewer for details.',
+        });
+        const result = await service.convertSkill(skill, ['skills']);
+        assert.ok(result.convertedBody.includes('superpowers:code-reviewer'),
+            'cross-reference should be preserved verbatim in skills-only mode');
+        assert.ok(!result.convertedBody.includes('.github/instructions/'),
+            'must not rewrite to .github/instructions/ path');
+        assert.ok(!result.convertedBody.includes('.github/prompts/'),
+            'must not rewrite to .github/prompts/ path');
+    });
+
+    it('does NOT rewrite companion links when skills-only', async () => {
+        const skill = makeSkill({
+            content: '---\nname: parent\n---\n\nSee [reviewer](code-reviewer.md) for details.',
+            companionFiles: [{ name: 'code-reviewer.md', content: 'reviewer body' }],
+        });
+        const result = await service.convertSkill(skill, ['skills']);
+        assert.ok(result.convertedBody.includes('](code-reviewer.md)'),
+            'companion link should remain verbatim in skills-only mode (companion lives next to SKILL.md)');
+        assert.ok(!result.convertedBody.includes('test-skill-code-reviewer'),
+            'must not prefix companion name in skills-only mode');
+    });
+
+    it('still applies conversions in mixed mode (skills + prompts)', async () => {
+        const skill = makeSkill({
+            content: '---\nname: parent\n---\n\nUse the TodoWrite tool. See superpowers:helper.',
+        });
+        const result = await service.convertSkill(skill, ['skills', 'prompts']);
+        assert.ok(!result.convertedBody.includes('TodoWrite'),
+            'tool-name conversion should still run in mixed mode (legacy outputs need it)');
+        assert.ok(result.convertedBody.includes('task checklist'),
+            'TodoWrite should be converted in mixed mode');
+    });
 });
 
 describe('ImportService.writeSkillFiles prompt format', () => {

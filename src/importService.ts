@@ -157,13 +157,21 @@ export class ImportService {
 
     async convertSkill(skill: SkillInfo, outputFormats?: OutputFormat[], useLm?: boolean): Promise<ConversionResult> {
         const parsed = parseSkillFrontmatter(skill.content);
-        let convertedBody = convertSkillContent(parsed.body, outputFormats);
+        // Skills-only output is a passthrough: Copilot Agent mode handles Claude-native
+        // terminology natively, and SKILL.md companions live alongside SKILL.md with
+        // their original names — so neither tool-name nor companion-link rewriting
+        // applies. Both rewrites would actively break references in skills-only mode.
+        const skillsOnly = !!outputFormats
+            && outputFormats.length > 0
+            && outputFormats.every(f => f === 'skills');
+
+        let convertedBody = skillsOnly ? parsed.body : convertSkillContent(parsed.body, outputFormats);
 
         if (useLm) {
             convertedBody = await convertWithLM(convertedBody);
         }
 
-        if (skill.companionFiles?.length) {
+        if (!skillsOnly && skill.companionFiles?.length) {
             const promptsOnly = !!outputFormats && outputFormats.includes('prompts') && !outputFormats.includes('instructions');
             const targetDir: 'instructions' | 'prompts' = promptsOnly ? 'prompts' : 'instructions';
             for (const companion of skill.companionFiles) {
