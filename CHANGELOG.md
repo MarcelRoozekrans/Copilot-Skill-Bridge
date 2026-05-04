@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.22.3](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/compare/copilot-skill-bridge-v0.22.2...copilot-skill-bridge-v0.22.3) (2026-05-04)
+
+
+### Bug Fixes
+
+* rewrite plain-text and backtick companion refs in skill body ([ff1269a](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/commit/ff1269a4cc36991b4f71e255e546b8c222bca6e3))
+* rewrite plain-text and backtick companion refs in skill body ([8fc1a80](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/commit/8fc1a800232ac09fbd814c21fa9dcc31f6e3cdd3))
+
 ## [0.22.2](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/compare/copilot-skill-bridge-v0.22.1...copilot-skill-bridge-v0.22.2) (2026-05-04)
 
 
