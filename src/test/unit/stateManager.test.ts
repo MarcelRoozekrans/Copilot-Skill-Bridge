@@ -1,7 +1,6 @@
 import * as assert from 'assert';
 import { createEmptyManifest, computeHash, isSkillImported, isSkillOutdated, recordImport, removeSkillRecord, isMcpServerImported, recordMcpImport, removeMcpRecord, setSkillEmbedded, isSkillEmbedded, recordMarketplace } from '../../stateManager';
 import { BridgeManifest } from '../../types';
-import { SkillsScope } from '../../skillsPath';
 
 describe('createEmptyManifest', () => {
     it('should return a valid empty manifest', () => {
