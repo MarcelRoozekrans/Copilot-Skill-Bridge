@@ -165,10 +165,15 @@ export class ImportService {
             const promptsOnly = !!outputFormats && outputFormats.includes('prompts') && !outputFormats.includes('instructions');
             const targetDir: 'instructions' | 'prompts' = promptsOnly ? 'prompts' : 'instructions';
             for (const companion of skill.companionFiles) {
-                const escapedName = companion.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                const linkPattern = new RegExp(`\\]\\(${escapedName}\\)`, 'g');
                 const targetName = companionFileName(skill.name, companion.name, targetDir);
-                convertedBody = convertedBody.replace(linkPattern, `](${targetName})`);
+                const stem = companion.name.replace(/\.prompt\.md$/, '').replace(/\.md$/, '');
+                const stemEscaped = stem.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                // Match the companion's filename anywhere it appears as a whole token,
+                // covering both <stem>.md and <stem>.prompt.md. Lookbehind/lookahead
+                // prevent partial matches inside longer identifiers like
+                // "my-<stem>.md" or "<stem>.mdx".
+                const filenamePattern = new RegExp(`(?<![\\w-])${stemEscaped}(?:\\.prompt)?\\.md(?!\\w)`, 'g');
+                convertedBody = convertedBody.replace(filenamePattern, targetName);
             }
         }
 

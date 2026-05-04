@@ -105,6 +105,48 @@ describe('ImportService.convertSkill', () => {
         assert.ok(!result.convertedBody.includes('](test-skill-code-reviewer.md)'),
             '.md link should not appear when promptsOnly');
     });
+
+    it('should rewrite plain-text path references to companion files when promptsOnly', async () => {
+        const skill = makeSkill({
+            content: '---\nname: parent\n---\n\nUse Task tool with .github/prompts/code-reviewer.prompt.md type.',
+            companionFiles: [{ name: 'code-reviewer.md', content: 'reviewer body' }],
+        });
+        const result = await service.convertSkill(skill, ['prompts']);
+        assert.ok(
+            result.convertedBody.includes('.github/prompts/test-skill-code-reviewer.prompt.md'),
+            `expected prefixed path, got: ${result.convertedBody}`,
+        );
+        assert.ok(
+            !result.convertedBody.includes('prompts/code-reviewer.prompt.md'),
+            'unprefixed path should be replaced',
+        );
+    });
+
+    it('should rewrite backtick-quoted companion references', async () => {
+        const skill = makeSkill({
+            content: '---\nname: parent\n---\n\nFill template at `code-reviewer.md`.',
+            companionFiles: [{ name: 'code-reviewer.md', content: 'reviewer body' }],
+        });
+        const result = await service.convertSkill(skill, ['prompts']);
+        assert.ok(
+            result.convertedBody.includes('`test-skill-code-reviewer.prompt.md`'),
+            `expected backtick rewrite, got: ${result.convertedBody}`,
+        );
+    });
+
+    it('should not rewrite filenames that merely contain the companion stem', async () => {
+        const skill = makeSkill({
+            content: '---\nname: parent\n---\n\nSee my-code-reviewer.md and code-reviewer.mdx (unrelated). Also code-reviewer.md (target).',
+            companionFiles: [{ name: 'code-reviewer.md', content: 'reviewer body' }],
+        });
+        const result = await service.convertSkill(skill, ['prompts']);
+        assert.ok(result.convertedBody.includes('my-code-reviewer.md'),
+            'unrelated my-code-reviewer.md must be preserved');
+        assert.ok(result.convertedBody.includes('code-reviewer.mdx'),
+            'unrelated code-reviewer.mdx must be preserved');
+        assert.ok(result.convertedBody.includes('test-skill-code-reviewer.prompt.md'),
+            'target reference should be rewritten');
+    });
 });
 
 describe('ImportService.writeSkillFiles prompt format', () => {
