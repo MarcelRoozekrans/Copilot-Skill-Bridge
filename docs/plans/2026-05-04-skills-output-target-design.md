@@ -112,8 +112,18 @@ Existing users have skills already imported as `.instructions.md` / `.prompt.md`
 
 ## Backwards compatibility
 
-- Older Copilot versions (pre-Dec 2025) won't pick up `SKILL.md`. Document a min Copilot version in README.
-- VS Code itself doesn't gate the feature — Copilot does. The bridge can't easily detect Copilot version, so we trust the user.
+**Classification:** soft behavior change for users on default config; no data loss.
+
+| Concern | Impact | Mitigation |
+|---|---|---|
+| Existing `.github/prompts/*.prompt.md` files | None — left on disk untouched | Manifest still tracks them; removal still works |
+| Existing `.github/instructions/*.instructions.md` files | None — left on disk untouched | Same |
+| Default `outputFormats` flips from `['prompts']` to `['skills']` | Future imports go to `~/.claude/skills/` instead of `.github/prompts/` | Migration prompt asks user on first run after upgrade |
+| Manifest schema gains optional `scope` field | None — additive | Missing field reads as `'workspace'`, matching legacy behavior |
+| Older Copilot versions (pre-Dec 2025) won't pick up `SKILL.md` | Skills become invisible to Copilot for those users | Document min Copilot version in README; users with old Copilot stay on `prompts`/`instructions` |
+| Scripts assuming `.github/prompts/` exists | Break for new imports if they assumed default behavior | Documented; users with explicit `outputFormats` config are unaffected |
+
+**No semver-major bump required.** This is a default change, not an API/contract removal. The `instructions` and `prompts` outputs remain fully supported for users who set them explicitly.
 
 ## Implementation sketch
 
