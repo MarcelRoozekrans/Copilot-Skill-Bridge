@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { convertSkillContent, generateInstructionsFile, generatePromptFile, generateRegistryEntry, generateFullPromptFile } from '../../converter';
+import { convertSkillContent, generateInstructionsFile, generatePromptFile, generateRegistryEntry, generateFullPromptFile, generateSkillFile } from '../../converter';
 
 describe('convertSkillContent', () => {
     it('should replace TodoWrite references', () => {
@@ -276,5 +276,30 @@ describe('generateRegistryEntry', () => {
     it('should use instructions path when instructions-only', () => {
         const result = generateRegistryEntry('brainstorming', ['instructions']);
         assert.strictEqual(result.file, '.github/instructions/brainstorming.instructions.md');
+    });
+});
+
+describe('generateSkillFile', () => {
+    it('wraps body in name+description frontmatter', () => {
+        const result = generateSkillFile('brainstorming', 'Creative work helper', 'Body content here');
+        assert.ok(result.startsWith('---\n'));
+        assert.ok(result.includes('name: brainstorming'));
+        assert.ok(result.includes("description: 'Creative work helper'"));
+        assert.ok(result.includes('Body content here'));
+    });
+
+    it('escapes single quotes in description', () => {
+        const result = generateSkillFile('test', "it's a test", 'body');
+        assert.ok(result.includes("description: 'it''s a test'"));
+    });
+
+    it('does not include applyTo (Copilot SKILL.md does not use it)', () => {
+        const result = generateSkillFile('test', 'desc', 'body');
+        assert.ok(!result.includes('applyTo'));
+    });
+
+    it('does not include agent: agent (that is for prompts)', () => {
+        const result = generateSkillFile('test', 'desc', 'body');
+        assert.ok(!result.includes('agent: agent'));
     });
 });

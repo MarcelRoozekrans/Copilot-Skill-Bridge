@@ -103,6 +103,16 @@ ${convertedBody}
 `;
 }
 
+export function generateSkillFile(name: string, description: string, convertedBody: string): string {
+    return `---
+name: ${name}
+description: '${description.replace(/'/g, "''")}'
+---
+
+${convertedBody}
+`;
+}
+
 export function generateRegistryEntry(name: string, outputFormats?: OutputFormat[]): RegistryEntry {
     const usePrompts = outputFormats && !outputFormats.includes('instructions') && outputFormats.includes('prompts');
     const file = usePrompts
