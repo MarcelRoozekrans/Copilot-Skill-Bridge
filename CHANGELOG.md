@@ -1,5 +1,38 @@
 # Changelog
 
+## [0.23.0](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/compare/copilot-skill-bridge-v0.22.3...copilot-skill-bridge-v0.23.0) (2026-05-04)
+
+
+### Features
+
+* add 'skills' to OutputFormat union ([bb34618](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/commit/bb34618dda51feed1316a5cb28ec799f1aef7376))
+* add generateSkillFile for Copilot SKILL.md frontmatter ([84801e0](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/commit/84801e05160541cbcaf796f66836942ab1507ddb))
+* add removeSkillFolder cleanup ([a38a0a3](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/commit/a38a0a3bcb82a6081d48578d3f3aa5013cd1b3b2))
+* add resolveSkillsRoot for user/workspace scope resolution ([4fb9c1b](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/commit/4fb9c1b45c74c0ee9573455f1c5d6f93b9efd341))
+* add skillsScope/skillsPath config; default outputFormats to skills ([4049639](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/commit/4049639ba0f66c16259d1ff45482a19c6519a677))
+* add writeSkillFolder for native SKILL.md output ([7f98faf](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/commit/7f98faf698c8e10d68ebe2ebcf674ac5943d14d6))
+* clean up skills folder on remove ([2b120db](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/commit/2b120db1e5fe5ed1213eb2a95727308a3d59e3b3))
+* native SKILL.md output target ([3c0ca5c](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/commit/3c0ca5c47886d496bd98ac0a35a5a0d2201d5c1d))
+* one-time migration prompt for skills output ([34b714d](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/commit/34b714df00c8d4ceee933df7fe9c46dc56c8b5b5))
+* record install scope per skill in manifest ([fb22a3f](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/commit/fb22a3f5350a8877e048787132bdd7b6aa9ec7e1))
+* wire skills output target into import flow ([ad03a39](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/commit/ad03a39b531500696dabdc2fc4d6a3678a6a00fb))
+
+
+### Bug Fixes
+
+* detect legacy users via config.inspect, not the package default ([38e1c50](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/commit/38e1c50381fdefbb2276eabf8f69ce4329754a81))
+* tighten tilde guard and handle empty override in resolveSkillsRoot ([baa98f8](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/commit/baa98f82e04d12af8b999667472029487495ae11))
+
+
+### Documentation
+
+* clarify why legacy companion writer skips skills-only mode ([f7dbd3f](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/commit/f7dbd3f44083c0ab0236759d610f4bba322bf2f9))
+* classify the skills output target as a soft behavior change ([835c986](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/commit/835c9864a6e57bafae50d01927ee0529e0c9b25f))
+* default skills install to user-global to keep repos clean ([caa0bce](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/commit/caa0bceb3730c688c4ba8211732a88dc9495a218))
+* design for native SKILL.md output target ([5a2664f](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/commit/5a2664fd9667f4a927dde03e0fc6d55af6433d11))
+* document skills output target and migration ([d80caf3](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/commit/d80caf3ecad67012424faf51bb33bc0129a706b4))
+* implementation plan for skills output target ([1d114e5](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/commit/1d114e537e2e3a9fb929099c4cedb3d33ffe74e1))
+
 ## [0.22.3](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/compare/copilot-skill-bridge-v0.22.2...copilot-skill-bridge-v0.22.3) (2026-05-04)
 
 
