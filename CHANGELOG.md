@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.24.1](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/compare/copilot-skill-bridge-v0.24.0...copilot-skill-bridge-v0.24.1) (2026-05-04)
+
+
+### Bug Fixes
+
+* stop rewriting skill content in skills-only mode ([413b9e7](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/commit/413b9e7357f2a35668e388db3501ad8c32eb3f7e))
+* stop rewriting skill content in skills-only mode ([e842193](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/commit/e842193dd06056350e205fab91d59a309617c5fd))
+
 ## [0.24.0](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/compare/copilot-skill-bridge-v0.23.1...copilot-skill-bridge-v0.24.0) (2026-05-04)
 
 
