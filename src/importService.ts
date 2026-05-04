@@ -536,6 +536,8 @@ export class ImportService {
             await writePromptFile(this.workspaceUri, skill.name, promptContent);
         }
 
+        // Skip the legacy companion writer when only 'skills' is selected;
+        // writeSkillFolder co-locates companions next to SKILL.md without prefixing.
         if (skill.companionFiles?.length && (outputFormats.includes('instructions') || outputFormats.includes('prompts'))) {
             const promptsOnly = outputFormats.includes('prompts') && !outputFormats.includes('instructions');
             await writeCompanionFiles(
