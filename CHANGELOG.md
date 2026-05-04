@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.23.1](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/compare/copilot-skill-bridge-v0.23.0...copilot-skill-bridge-v0.23.1) (2026-05-04)
+
+
+### Bug Fixes
+
+* skip meta-orchestrator hack in skills-only mode ([7aa65fb](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/commit/7aa65fb4c56df80a0a6da20f3c09731225ea2b22))
+* skip meta-orchestrator hack when in skills-only mode ([9fc2633](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/commit/9fc2633c1dd36618135c4ea6420376671a05ed8a))
+
 ## [0.23.0](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/compare/copilot-skill-bridge-v0.22.3...copilot-skill-bridge-v0.23.0) (2026-05-04)
 
 
