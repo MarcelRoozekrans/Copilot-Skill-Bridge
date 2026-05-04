@@ -36,4 +36,27 @@ describe('resolveSkillsRoot', () => {
         const uri = resolveSkillsRoot('user', abs, workspaceUri);
         assert.strictEqual(uri.fsPath, abs);
     });
+
+    it('treats empty-string override as "use default" for user scope', () => {
+        const uri = resolveSkillsRoot('user', '', workspaceUri);
+        const expected = path.join(os.homedir(), '.claude', 'skills');
+        assert.strictEqual(uri.fsPath, expected);
+    });
+
+    it('treats empty-string override as "use default" for workspace scope', () => {
+        const uri = resolveSkillsRoot('workspace', '', workspaceUri);
+        assert.ok(uri.fsPath.endsWith('test-workspace/.github/skills'),
+            `unexpected fsPath: ${uri.fsPath}`);
+    });
+
+    it('does not expand ~user/foo (only ~/foo or ~\\foo or bare ~)', () => {
+        const uri = resolveSkillsRoot('user', '~bob/skills', workspaceUri);
+        assert.ok(uri.fsPath.includes('~bob'),
+            `expected ~bob preserved, got: ${uri.fsPath}`);
+    });
+
+    it('expands bare ~ to the home directory', () => {
+        const uri = resolveSkillsRoot('user', '~', workspaceUri);
+        assert.strictEqual(uri.fsPath, os.homedir());
+    });
 });

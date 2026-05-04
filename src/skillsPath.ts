@@ -12,16 +12,21 @@ export function resolveSkillsRoot(
     override: string | undefined,
     workspaceUri: vscode.Uri,
 ): vscode.Uri {
-    const raw = override ?? (scope === 'user' ? USER_DEFAULT : WORKSPACE_DEFAULT);
+    const effective = override && override.length > 0
+        ? override
+        : (scope === 'user' ? USER_DEFAULT : WORKSPACE_DEFAULT);
 
-    if (raw.startsWith('~')) {
-        return vscode.Uri.file(path.join(os.homedir(), raw.slice(1)));
+    if (effective === '~') {
+        return vscode.Uri.file(os.homedir());
     }
-    if (path.isAbsolute(raw)) {
-        return vscode.Uri.file(raw);
+    if (effective.startsWith('~/') || effective.startsWith('~\\')) {
+        return vscode.Uri.file(path.join(os.homedir(), effective.slice(2)));
+    }
+    if (path.isAbsolute(effective)) {
+        return vscode.Uri.file(effective);
     }
     if (scope === 'workspace') {
-        return vscode.Uri.joinPath(workspaceUri, ...raw.split(/[\\/]/));
+        return vscode.Uri.joinPath(workspaceUri, ...effective.split(/[\\/]/));
     }
-    return vscode.Uri.file(path.join(os.homedir(), raw));
+    return vscode.Uri.file(path.join(os.homedir(), effective));
 }
