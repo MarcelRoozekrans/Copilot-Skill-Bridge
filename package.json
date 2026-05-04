@@ -337,13 +337,28 @@
             "type": "string",
             "enum": [
               "instructions",
-              "prompts"
+              "prompts",
+              "skills"
             ]
           },
           "default": [
-            "prompts"
+            "skills"
           ],
-          "description": "Which Copilot file formats to generate"
+          "description": "Which Copilot file formats to generate. 'skills' writes native SKILL.md (recommended). 'instructions'/'prompts' use the legacy conversion pipeline."
+        },
+        "copilotSkillBridge.skillsScope": {
+          "type": "string",
+          "enum": [
+            "user",
+            "workspace"
+          ],
+          "default": "user",
+          "description": "Where to install skills. 'user' (default) writes to ~/.claude/skills (clean repo, like installing a VS Code extension). 'workspace' writes to .github/skills (committed, team-shared)."
+        },
+        "copilotSkillBridge.skillsPath": {
+          "type": "string",
+          "default": "",
+          "description": "Override the skills install path. Empty = use the scope default. Supports ~ expansion. For workspace scope, relative paths anchor at the workspace root."
         },
         "copilotSkillBridge.generateRegistry": {
           "type": "boolean",
