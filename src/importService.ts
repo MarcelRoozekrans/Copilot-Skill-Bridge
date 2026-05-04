@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { SkillInfo, PluginInfo, ConversionResult, McpServerInfo, BulkImportResult, DiscoveryResult, DiscoveryError, DependencyGraph, BridgeManifest } from './types';
 import { convertSkillContent, generateInstructionsFile, generatePromptFile, generateFullPromptFile, generateRegistryEntry, generateSkillFile, OutputFormat } from './converter';
-import { writeSkillFolder } from './skillsWriter';
+import { writeSkillFolder, removeSkillFolder } from './skillsWriter';
 import { resolveSkillsRoot, SkillsScope } from './skillsPath';
 import { parseSkillFrontmatter } from './parser';
 import { computeHash, loadManifest, saveManifest, recordImport, removeSkillRecord, recordMcpImport, removeMcpRecord, isMcpServerImported, setSkillEmbedded, isSkillImported, recordMarketplace } from './stateManager';
@@ -584,10 +584,24 @@ export class ImportService {
         return manifest;
     }
 
-    async removeSkill(skillName: string, generateRegistry: boolean, outputFormats?: OutputFormat[]): Promise<void> {
+    async removeSkill(
+        skillName: string,
+        generateRegistry: boolean,
+        outputFormats?: OutputFormat[],
+        // Recorded scope on the manifest is authoritative; param kept for caller symmetry with importSkill.
+        _skillsScope: SkillsScope = 'user',
+        skillsPath?: string,
+    ): Promise<void> {
+        let manifest = await loadManifest(this.workspaceUri);
+        const recordedScope = manifest.skills[skillName]?.scope;
+
         await removeSkillFiles(this.workspaceUri, skillName);
 
-        let manifest = await loadManifest(this.workspaceUri);
+        if (recordedScope) {
+            const root = resolveSkillsRoot(recordedScope, skillsPath, this.workspaceUri);
+            await removeSkillFolder(root, skillName);
+        }
+
         manifest = removeSkillRecord(manifest, skillName);
         await saveManifest(this.workspaceUri, manifest);
 
