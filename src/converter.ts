@@ -43,7 +43,7 @@ const CONVERSION_RULES: Array<{ pattern: RegExp; replacement: string }> = [
     { pattern: /(?<![/:.])\bClaude\b(?![./])/g, replacement: 'the AI assistant' },
 ];
 
-export type OutputFormat = 'instructions' | 'prompts';
+export type OutputFormat = 'instructions' | 'prompts' | 'skills';
 
 export function convertSkillContent(content: string, outputFormats?: OutputFormat[]): string {
     let result = content;
