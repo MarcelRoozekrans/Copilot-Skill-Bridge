@@ -4,7 +4,7 @@ import { convertSkillContent, generateInstructionsFile, generatePromptFile, gene
 import { parseSkillFrontmatter } from './parser';
 import { computeHash, loadManifest, saveManifest, recordImport, removeSkillRecord, recordMcpImport, removeMcpRecord, isMcpServerImported, setSkillEmbedded, isSkillImported, recordMarketplace } from './stateManager';
 import { fetchLatestCommitSha } from './remoteReader';
-import { writeInstructionsFile, writePromptFile, updateCopilotInstructions, removeSkillFiles, writeCompanionFiles } from './fileWriter';
+import { writeInstructionsFile, writePromptFile, updateCopilotInstructions, removeSkillFiles, writeCompanionFiles, companionFileName } from './fileWriter';
 import { discoverLocalPlugins } from './localReader';
 import { discoverRemotePlugins, GitHubApiError, RemoteDiscoveryResult, resetTokenCache } from './remoteReader';
 import { convertMcpServers } from './mcpConverter';
@@ -162,10 +162,13 @@ export class ImportService {
         }
 
         if (skill.companionFiles?.length) {
+            const promptsOnly = !!outputFormats && outputFormats.includes('prompts') && !outputFormats.includes('instructions');
+            const targetDir: 'instructions' | 'prompts' = promptsOnly ? 'prompts' : 'instructions';
             for (const companion of skill.companionFiles) {
                 const escapedName = companion.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
                 const linkPattern = new RegExp(`\\]\\(${escapedName}\\)`, 'g');
-                convertedBody = convertedBody.replace(linkPattern, `](${skill.name}-${companion.name})`);
+                const targetName = companionFileName(skill.name, companion.name, targetDir);
+                convertedBody = convertedBody.replace(linkPattern, `](${targetName})`);
             }
         }
 

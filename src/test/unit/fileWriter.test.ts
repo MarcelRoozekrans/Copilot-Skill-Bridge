@@ -1,6 +1,6 @@
 import * as assert from 'assert';
 import * as vscode from 'vscode';
-import { buildRegistryTable, mergeRegistryIntoInstructions, updateCopilotInstructions, writeInstructionsFile, writePromptFile, removeSkillFiles, writeCompanionFiles } from '../../fileWriter';
+import { buildRegistryTable, mergeRegistryIntoInstructions, updateCopilotInstructions, writeInstructionsFile, writePromptFile, removeSkillFiles, writeCompanionFiles, companionFileName } from '../../fileWriter';
 
 describe('buildRegistryTable', () => {
     it('should produce a 2-column table for embedded skills', () => {
@@ -269,5 +269,54 @@ describe('writeCompanionFiles', () => {
         await writeCompanionFiles(workspaceUri, 'my-skill', companions, (c) => c, 'prompts');
         assert.ok(writtenFiles[0].path.includes('prompts'));
         assert.ok(!writtenFiles[0].path.includes('instructions'));
+    });
+
+    it('should append .prompt.md to companions in prompts directory', async () => {
+        const companions = [
+            { name: 'code-reviewer.md', content: 'content' },
+            { name: 'visual-criteria.md', content: 'content' },
+        ];
+        await writeCompanionFiles(workspaceUri, 'requesting-code-review', companions, (c) => c, 'prompts');
+        assert.ok(writtenFiles[0].path.endsWith('requesting-code-review-code-reviewer.prompt.md'),
+            `expected .prompt.md suffix, got: ${writtenFiles[0].path}`);
+        assert.ok(writtenFiles[1].path.endsWith('requesting-code-review-visual-criteria.prompt.md'),
+            `expected .prompt.md suffix, got: ${writtenFiles[1].path}`);
+    });
+
+    it('should keep .md (not .prompt.md) for companions in instructions directory', async () => {
+        const companions = [{ name: 'visual-criteria.md', content: 'content' }];
+        await writeCompanionFiles(workspaceUri, 'regression-test', companions, (c) => c, 'instructions');
+        assert.ok(writtenFiles[0].path.endsWith('regression-test-visual-criteria.md'));
+        assert.ok(!writtenFiles[0].path.endsWith('.prompt.md'));
+    });
+
+    it('should not double-suffix when source name already ends with .prompt.md', async () => {
+        const companions = [{ name: 'reviewer.prompt.md', content: 'content' }];
+        await writeCompanionFiles(workspaceUri, 'my-skill', companions, (c) => c, 'prompts');
+        assert.ok(writtenFiles[0].path.endsWith('my-skill-reviewer.prompt.md'),
+            `expected single .prompt.md suffix, got: ${writtenFiles[0].path}`);
+    });
+});
+
+describe('companionFileName', () => {
+    it('strips .md and adds .prompt.md for prompts dir', () => {
+        assert.strictEqual(
+            companionFileName('parent', 'child.md', 'prompts'),
+            'parent-child.prompt.md',
+        );
+    });
+
+    it('preserves .md for instructions dir', () => {
+        assert.strictEqual(
+            companionFileName('parent', 'child.md', 'instructions'),
+            'parent-child.md',
+        );
+    });
+
+    it('strips .prompt.md before re-appending for prompts dir', () => {
+        assert.strictEqual(
+            companionFileName('parent', 'child.prompt.md', 'prompts'),
+            'parent-child.prompt.md',
+        );
     });
 });

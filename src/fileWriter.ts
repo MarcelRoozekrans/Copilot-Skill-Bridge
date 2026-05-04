@@ -111,9 +111,17 @@ export async function writeCompanionFiles(
     await vscode.workspace.fs.createDirectory(dir);
     for (const file of companionFiles) {
         const converted = convertContent(file.content);
-        const fileUri = vscode.Uri.joinPath(dir, `${skillName}-${file.name}`);
+        const fileUri = vscode.Uri.joinPath(dir, companionFileName(skillName, file.name, subdir));
         await vscode.workspace.fs.writeFile(fileUri, Buffer.from(converted, 'utf-8'));
     }
+}
+
+export function companionFileName(skillName: string, sourceName: string, targetDir: 'instructions' | 'prompts'): string {
+    if (targetDir === 'prompts') {
+        const stem = sourceName.replace(/\.prompt\.md$/, '').replace(/\.md$/, '');
+        return `${skillName}-${stem}.prompt.md`;
+    }
+    return `${skillName}-${sourceName}`;
 }
 
 export async function removeSkillFiles(workspaceUri: vscode.Uri, skillName: string): Promise<void> {
