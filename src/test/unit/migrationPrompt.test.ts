@@ -36,9 +36,12 @@ describe('maybePromptSkillsMigration', () => {
     let origShowInformationMessage: typeof vscode.window.showInformationMessage;
 
     let storedManifest: BridgeManifest | undefined;
+    let store: Record<string, string>;
     let mockConfig: MockConfig;
     let promptShown: boolean;
     let promptResponse: string | undefined;
+
+    const workspaceManifestPath = '/tmp/migration-test/.github/.copilot-skill-bridge.json';
 
     beforeEach(() => {
         origReadFile = vscode.workspace.fs.readFile;
@@ -48,6 +51,7 @@ describe('maybePromptSkillsMigration', () => {
         origShowInformationMessage = vscode.window.showInformationMessage;
 
         storedManifest = undefined;
+        store = {};
         mockConfig = {
             outputFormats: ['prompts'],
             inspect: { defaultValue: ['skills'] },
@@ -56,14 +60,25 @@ describe('maybePromptSkillsMigration', () => {
         promptShown = false;
         promptResponse = undefined;
 
-        (vscode.workspace.fs as any).readFile = async () => {
-            if (storedManifest) {
+        (vscode.workspace.fs as any).readFile = async (uri: vscode.Uri) => {
+            // The migration prompt reads the workspace manifest only.
+            if (uri.fsPath === workspaceManifestPath && storedManifest) {
                 return Buffer.from(JSON.stringify(storedManifest), 'utf-8');
+            }
+            const content = store[uri.fsPath];
+            if (content !== undefined) {
+                return Buffer.from(content, 'utf-8');
             }
             throw new Error('not found');
         };
-        (vscode.workspace.fs as any).writeFile = async (_uri: vscode.Uri, buf: Uint8Array) => {
-            storedManifest = JSON.parse(Buffer.from(buf).toString('utf-8'));
+        (vscode.workspace.fs as any).writeFile = async (uri: vscode.Uri, buf: Uint8Array) => {
+            const content = Buffer.from(buf).toString('utf-8');
+            store[uri.fsPath] = content;
+            // Mirror the workspace manifest into the legacy storedManifest hook so
+            // tests asserting on storedManifest.migration continue to work.
+            if (uri.fsPath === workspaceManifestPath) {
+                storedManifest = JSON.parse(content);
+            }
         };
         (vscode.workspace.fs as any).createDirectory = async () => { /* noop */ };
 

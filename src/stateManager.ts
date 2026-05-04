@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as crypto from 'crypto';
 import { BridgeManifest, SkillImportState } from './types';
 import { getLogger } from './logger';
+import { loadUserManifest, saveUserManifest } from './userManifest';
 
 const MANIFEST_FILENAME = '.copilot-skill-bridge.json';
 
@@ -31,23 +32,47 @@ export function isSkillOutdated(manifest: BridgeManifest, skillName: string, cur
     return state.importedHash !== currentSourceHash;
 }
 
-export async function loadManifest(workspaceUri: vscode.Uri): Promise<BridgeManifest> {
+async function loadWorkspaceManifest(workspaceUri: vscode.Uri): Promise<BridgeManifest> {
     const manifestUri = vscode.Uri.joinPath(workspaceUri, '.github', MANIFEST_FILENAME);
     try {
         const raw = await vscode.workspace.fs.readFile(manifestUri);
         return JSON.parse(Buffer.from(raw).toString('utf-8')) as BridgeManifest;
     } catch (err) {
-        getLogger().debug('stateManager.loadManifest: empty manifest fallback', err);
+        getLogger().debug('stateManager.loadWorkspaceManifest: empty manifest fallback', err);
         return createEmptyManifest();
     }
 }
 
+export async function loadManifest(workspaceUri: vscode.Uri): Promise<BridgeManifest> {
+    const [workspace, user] = await Promise.all([
+        loadWorkspaceManifest(workspaceUri),
+        loadUserManifest(),
+    ]);
+    // Workspace entries take precedence over user-global entries with the same name.
+    return {
+        ...workspace,
+        skills: { ...user.skills, ...workspace.skills },
+    };
+}
+
 export async function saveManifest(workspaceUri: vscode.Uri, manifest: BridgeManifest): Promise<void> {
+    const workspaceSkills: Record<string, SkillImportState> = {};
+    const userSkills: Record<string, SkillImportState> = {};
+    for (const [name, state] of Object.entries(manifest.skills)) {
+        if (state.scope === 'user') {
+            userSkills[name] = state;
+        } else {
+            workspaceSkills[name] = state;
+        }
+    }
+
     const githubDir = vscode.Uri.joinPath(workspaceUri, '.github');
     await vscode.workspace.fs.createDirectory(githubDir);
     const manifestUri = vscode.Uri.joinPath(githubDir, MANIFEST_FILENAME);
-    const content = JSON.stringify(manifest, null, 2);
-    await vscode.workspace.fs.writeFile(manifestUri, Buffer.from(content, 'utf-8'));
+    const workspaceManifest: BridgeManifest = { ...manifest, skills: workspaceSkills };
+    await vscode.workspace.fs.writeFile(manifestUri, Buffer.from(JSON.stringify(workspaceManifest, null, 2), 'utf-8'));
+
+    await saveUserManifest({ skills: userSkills });
 }
 
 export function recordImport(
