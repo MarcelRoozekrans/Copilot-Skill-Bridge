@@ -31,10 +31,11 @@ export async function maybePromptSkillsMigration(workspaceUri: vscode.Uri): Prom
     const hasSkills = Object.keys(manifest.skills).length > 0;
     const alreadyPrompted = manifest.migration?.skillsPrompted === true;
     const config = vscode.workspace.getConfiguration('copilotSkillBridge');
-    const currentFormats = config.get<string[]>('outputFormats', ['prompts']);
-    const alreadyOnSkills = currentFormats.includes('skills');
+    const inspected = config.inspect<string[]>('outputFormats');
+    const userSet = inspected?.workspaceValue ?? inspected?.workspaceFolderValue ?? inspected?.globalValue;
+    const userExplicitlyOnSkills = Array.isArray(userSet) && userSet.includes('skills');
 
-    if (!hasSkills || alreadyPrompted || alreadyOnSkills) { return; }
+    if (!hasSkills || alreadyPrompted || userExplicitlyOnSkills) { return; }
 
     const choice = await vscode.window.showInformationMessage(
         'GitHub Copilot now reads SKILL.md natively. Switch CopilotBridge to write skills directly?',

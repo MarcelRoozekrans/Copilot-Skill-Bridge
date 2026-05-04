@@ -3,8 +3,16 @@ import * as vscode from 'vscode';
 import { maybePromptSkillsMigration } from '../../extension';
 import { BridgeManifest } from '../../types';
 
+interface InspectResult {
+    defaultValue?: string[];
+    globalValue?: string[];
+    workspaceValue?: string[];
+    workspaceFolderValue?: string[];
+}
+
 interface MockConfig {
     outputFormats: string[];
+    inspect: InspectResult;
     updates: Array<{ key: string; value: unknown; target: number }>;
 }
 
@@ -40,7 +48,11 @@ describe('maybePromptSkillsMigration', () => {
         origShowInformationMessage = vscode.window.showInformationMessage;
 
         storedManifest = undefined;
-        mockConfig = { outputFormats: ['prompts'], updates: [] };
+        mockConfig = {
+            outputFormats: ['prompts'],
+            inspect: { defaultValue: ['skills'] },
+            updates: [],
+        };
         promptShown = false;
         promptResponse = undefined;
 
@@ -61,6 +73,12 @@ describe('maybePromptSkillsMigration', () => {
                     return (mockConfig.outputFormats as unknown) as T;
                 }
                 return defaultValue as T;
+            },
+            inspect: <T>(key: string): InspectResult | undefined => {
+                if (key === 'outputFormats') {
+                    return mockConfig.inspect;
+                }
+                return undefined;
             },
             update: async (key: string, value: unknown, target: number) => {
                 mockConfig.updates.push({ key, value, target });
@@ -111,6 +129,55 @@ describe('maybePromptSkillsMigration', () => {
 
     it('does not prompt when outputFormats already includes "skills"', async () => {
         mockConfig.outputFormats = ['skills'];
+        mockConfig.inspect = { defaultValue: ['skills'], workspaceValue: ['skills'] };
+        storedManifest = makeManifest({
+            skills: {
+                brainstorming: {
+                    source: 'plugin@repo',
+                    sourceHash: 'h',
+                    importedHash: 'h',
+                    importedAt: '2026-01-01',
+                    locallyModified: false,
+                },
+            },
+        });
+        await maybePromptSkillsMigration(workspaceUri);
+        assert.strictEqual(promptShown, false);
+        assert.strictEqual(mockConfig.updates.length, 0);
+    });
+
+    it('prompts an upgrading user even when get() returns the package default ["skills"]', async () => {
+        // Simulates a legacy user upgrading: never explicitly set outputFormats, so
+        // get() falls back to the package default of ['skills'], but inspect() shows
+        // no user-level value. The prompt MUST still fire.
+        mockConfig.outputFormats = ['skills'];
+        mockConfig.inspect = {
+            defaultValue: ['skills'],
+            globalValue: undefined,
+            workspaceValue: undefined,
+            workspaceFolderValue: undefined,
+        };
+        storedManifest = makeManifest({
+            skills: {
+                brainstorming: {
+                    source: 'plugin@repo',
+                    sourceHash: 'h',
+                    importedHash: 'h',
+                    importedAt: '2026-01-01',
+                    locallyModified: false,
+                },
+            },
+        });
+        promptResponse = 'Keep current';
+        await maybePromptSkillsMigration(workspaceUri);
+
+        assert.strictEqual(promptShown, true, 'prompt should fire for upgrading users');
+        assert.strictEqual(storedManifest!.migration?.skillsPrompted, true);
+    });
+
+    it('does not prompt when user has explicitly set globalValue to ["skills"] (defense-in-depth)', async () => {
+        mockConfig.outputFormats = ['skills'];
+        mockConfig.inspect = { defaultValue: ['skills'], globalValue: ['skills'] };
         storedManifest = makeManifest({
             skills: {
                 brainstorming: {
