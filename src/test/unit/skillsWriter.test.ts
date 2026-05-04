@@ -1,7 +1,7 @@
 import * as assert from 'assert';
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { writeSkillFolder } from '../../skillsWriter';
+import { writeSkillFolder, removeSkillFolder } from '../../skillsWriter';
 
 describe('writeSkillFolder', () => {
     const root = vscode.Uri.file('/tmp/skills-root');
@@ -53,5 +53,36 @@ describe('writeSkillFolder', () => {
         assert.ok(companionFile, 'companion file should be written with original name');
         assert.ok(!companionFile!.path.includes('requesting-code-review-code-reviewer'),
             'companion should NOT be prefixed with parent name');
+    });
+});
+
+describe('removeSkillFolder', () => {
+    const root = vscode.Uri.file('/tmp/skills-root');
+    let deletedPaths: string[];
+    const origDelete = vscode.workspace.fs.delete;
+
+    beforeEach(() => {
+        deletedPaths = [];
+        (vscode.workspace.fs as unknown as { delete: unknown }).delete =
+            async (uri: vscode.Uri) => {
+                deletedPaths.push(uri.fsPath);
+            };
+    });
+
+    afterEach(() => {
+        (vscode.workspace.fs as unknown as { delete: unknown }).delete = origDelete;
+    });
+
+    it('deletes the skill directory recursively', async () => {
+        await removeSkillFolder(root, 'brainstorming');
+        assert.strictEqual(deletedPaths.length, 1);
+        assert.ok(deletedPaths[0].endsWith('skills-root/brainstorming'),
+            `unexpected path: ${deletedPaths[0]}`);
+    });
+
+    it('does not throw if directory does not exist', async () => {
+        (vscode.workspace.fs as unknown as { delete: unknown }).delete =
+            async () => { throw new Error('not found'); };
+        await assert.doesNotReject(removeSkillFolder(root, 'missing'));
     });
 });

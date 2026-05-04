@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { CompanionFile } from './types';
+import { getLogger } from './logger';
 
 export async function writeSkillFolder(
     root: vscode.Uri,
@@ -20,5 +21,14 @@ export async function writeSkillFolder(
             vscode.Uri.joinPath(skillDir, companion.name),
             Buffer.from(companion.content, 'utf-8'),
         );
+    }
+}
+
+export async function removeSkillFolder(root: vscode.Uri, skillName: string): Promise<void> {
+    const skillDir = vscode.Uri.joinPath(root, skillName);
+    try {
+        await vscode.workspace.fs.delete(skillDir, { recursive: true, useTrash: false });
+    } catch (err) {
+        getLogger().debug('skillsWriter.removeSkillFolder: directory not found', err);
     }
 }
