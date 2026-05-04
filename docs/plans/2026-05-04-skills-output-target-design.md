@@ -35,19 +35,30 @@ Make `skills` the default for new installs, while keeping `instructions` and `pr
 
 ## Output target options
 
-VS Code Agent Skills auto-discovers six paths. CopilotBridge should pick **one workspace path as default** and offer a setting:
+VS Code Agent Skills auto-discovers six paths, split across **user-global** (apply to every workspace) and **workspace** (committed to the repo):
 
 | Path | Scope | Pros | Cons |
 |---|---|---|---|
-| `.github/skills/<name>/SKILL.md` | Workspace, committed | Travels with repo, team-shared, lives next to existing `.github/instructions/` | New folder convention for users |
+| `~/.claude/skills/<name>/SKILL.md` | User-global, uncommitted | Clean repo, install once use everywhere, mirrors the existing "Install in Claude" precedent | Not reproducible across team; new contributors must install separately |
+| `~/.copilot/skills/<name>/SKILL.md` | User-global, uncommitted | Same as above, but in a Copilot-branded path rather than Claude's | Less recognizable to users coming from Claude tooling |
+| `.github/skills/<name>/SKILL.md` | Workspace, committed | Travels with repo, team-shared, lives next to existing `.github/instructions/` | Pollutes repo with possibly-third-party content; large skill libraries bloat the project |
 | `.claude/skills/<name>/SKILL.md` | Workspace, committed | Direct Claude interop — same files work in both tools | `.claude/` is conventionally Claude-specific; mixing tooling there feels off |
-| `~/.claude/skills/<name>/SKILL.md` | User-global, uncommitted | Shared across all workspaces for the user | Not in version control; less reproducible |
 
-**Recommended default:** `.github/skills/<name>/SKILL.md`.
+**Recommended default:** `~/.claude/skills/<name>/SKILL.md` (user-global).
 
-Reasoning: it's the path GitHub itself documents first, mirrors the existing `.github/instructions/` convention users already know, and travels with the repo so a teammate cloning the project gets the same skills.
+Reasoning:
 
-Expose `copilotBridge.skillsOutputPath` setting for users who prefer `.claude/skills/` (interop) or `~/.claude/skills/` (user-global).
+1. **Most usage is personal productivity, not team policy.** CopilotBridge's primary flow is "browse a marketplace, import a skill, use it" — the same shape as installing a VS Code extension. Extensions don't get committed to the repo, and skills probably shouldn't either.
+2. **Mirrors existing "Install in Claude" precedent.** That command already writes user-globally to `~/.claude/plugins/cache/`. Users have a mental model that this extension installs to their home directory, not their workspace.
+3. **Keeps repos clean.** A user who imports 20 marketplace skills doesn't pollute every project they open with 20 unrelated `.github/skills/` directories.
+4. **Reproducibility is a separate problem.** Teams that need shared skills can opt into the workspace path explicitly.
+
+Expose two settings:
+
+- `copilotBridge.skillsScope`: `'user'` (default) | `'workspace'` — chooses between user-global and workspace install.
+- `copilotBridge.skillsPath`: optional override of the exact path within the chosen scope. Defaults: `~/.claude/skills` for user, `.github/skills` for workspace.
+
+Document the team-shared workflow in the README: *"To commit skills to your repo so teammates pick them up automatically, set `copilotBridge.skillsScope` to `'workspace'`."*
 
 ## Format mapping
 
@@ -107,16 +118,18 @@ Existing users have skills already imported as `.instructions.md` / `.prompt.md`
 ## Implementation sketch
 
 New files:
-- `src/skillsWriter.ts` — `writeSkillFolder(workspaceUri, skill, conversion)` that creates `.github/skills/<slug>/` and writes `SKILL.md` + companions.
+- `src/skillsWriter.ts` — `writeSkillFolder(targetRoot, skill, conversion)` that creates `<root>/<slug>/` and writes `SKILL.md` + companions. `targetRoot` is the resolved scope path (user or workspace).
+- `src/skillsPath.ts` — `resolveSkillsRoot(scope, override?, workspaceUri?)` that returns a `vscode.Uri` for the active scope. Handles `~` expansion for user paths.
 
 Modified files:
 - `src/types.ts` — add `'skills'` to the `OutputFormat` union.
 - `src/converter.ts` — `generateSkillFile(skill, convertedBody)` that wraps body in passthrough frontmatter for the new path.
-- `src/importService.ts` — at `writeSkillFiles`, when `outputFormats.includes('skills')`, call `writeSkillFolder` in addition to (or instead of) the existing instructions/prompts writes.
-- `src/fileWriter.ts` — `removeSkillFiles` learns about `.github/skills/<slug>/` so cleanup works on un-import.
-- `src/extension.ts` — config schema adds `skills` to `outputFormats` enum; default for new installs becomes `['skills']`.
+- `src/importService.ts` — at `writeSkillFiles`, when `outputFormats.includes('skills')`, resolve scope and call `writeSkillFolder` in addition to (or instead of) the existing instructions/prompts writes.
+- `src/fileWriter.ts` — `removeSkillFiles` learns about both user-scope and workspace-scope skill dirs so cleanup works on un-import regardless of where the skill was installed.
+- `src/extension.ts` — config schema adds `skills` to `outputFormats` enum; adds `skillsScope` and `skillsPath` settings; default `outputFormats` for new installs becomes `['skills']`, default scope `'user'`.
+- `src/stateManager.ts` — manifest entry should record the install scope (`'user' | 'workspace'`) per skill, so removal targets the correct directory even if the user changes the default later.
 
-Roughly 200–300 LOC + tests. Most existing conversion code stays — it gets reused for the body transform inside `SKILL.md`. The structural rewriting (link patching, companion prefixing, registry table) is bypassed when `outputFormats === ['skills']`.
+Roughly 300–400 LOC + tests. Most existing conversion code stays — it gets reused for the body transform inside `SKILL.md`. The structural rewriting (link patching, companion prefixing, registry table) is bypassed when `outputFormats === ['skills']`.
 
 ## Test plan
 
@@ -128,7 +141,7 @@ Roughly 200–300 LOC + tests. Most existing conversion code stays — it gets r
 
 ## Decisions to confirm
 
-1. Default skills output path — recommended `.github/skills/`. Confirm or pick alternative.
+1. Default skills scope — recommended user-global (`~/.claude/skills/`) to keep workspaces clean. Confirm or prefer workspace.
 2. Tool-name conversion in body — recommended option 2 (keep current conversion, drop structural rewrites). Confirm.
 3. Default `outputFormats` for new installs — recommended `['skills']`. Confirm or prefer `['skills', 'prompts']` for mode coverage.
 4. Migration prompt UX — recommended one-time prompt on upgrade. Confirm or prefer silent / opt-in via command palette only.
