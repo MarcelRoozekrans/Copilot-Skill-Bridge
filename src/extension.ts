@@ -3,7 +3,7 @@ import { SkillBridgeTreeProvider, SkillTreeItem } from './treeView';
 import { ImportService } from './importService';
 import { UpdateWatcher } from './updateWatcher';
 import { loadManifest, saveManifest, updateMarketplaceLastChecked } from './stateManager';
-import { DiscoveryError } from './types';
+import { BridgeManifest, DiscoveryError } from './types';
 import { installPluginInClaudeCache, fetchPluginJson } from './claudeInstaller';
 import { initLogger, getLogger } from './logger';
 
@@ -18,6 +18,43 @@ class SkillContentProvider implements vscode.TextDocumentContentProvider {
         const key = uri.path.replace(/\.md$/, '');
         return skillContentStore.get(key) ?? '';
     }
+}
+
+/**
+ * One-time migration prompt: if the user already has imported skills under the
+ * legacy `instructions`/`prompts` outputs but hasn't yet opted into `skills`,
+ * ask whether they'd like to switch. The decision is recorded in the manifest
+ * so we never re-prompt.
+ */
+export async function maybePromptSkillsMigration(workspaceUri: vscode.Uri): Promise<void> {
+    const manifest = await loadManifest(workspaceUri);
+    const hasSkills = Object.keys(manifest.skills).length > 0;
+    const alreadyPrompted = manifest.migration?.skillsPrompted === true;
+    const config = vscode.workspace.getConfiguration('copilotSkillBridge');
+    const currentFormats = config.get<string[]>('outputFormats', ['prompts']);
+    const alreadyOnSkills = currentFormats.includes('skills');
+
+    if (!hasSkills || alreadyPrompted || alreadyOnSkills) { return; }
+
+    const choice = await vscode.window.showInformationMessage(
+        'GitHub Copilot now reads SKILL.md natively. Switch CopilotBridge to write skills directly?',
+        { modal: false },
+        'Switch (recommended)',
+        'Hybrid (skills + prompts)',
+        'Keep current',
+    );
+
+    if (choice === 'Switch (recommended)') {
+        await config.update('outputFormats', ['skills'], vscode.ConfigurationTarget.Workspace);
+    } else if (choice === 'Hybrid (skills + prompts)') {
+        await config.update('outputFormats', ['skills', 'prompts'], vscode.ConfigurationTarget.Workspace);
+    }
+
+    const updated: BridgeManifest = {
+        ...manifest,
+        migration: { ...(manifest.migration ?? {}), skillsPrompted: true },
+    };
+    await saveManifest(workspaceUri, updated);
 }
 
 export async function activate(context: vscode.ExtensionContext) {
@@ -203,6 +240,12 @@ export async function activate(context: vscode.ExtensionContext) {
     }
 
     const workspaceUri = workspaceFolder.uri;
+
+    // Fire-and-forget migration prompt — never block activation.
+    void maybePromptSkillsMigration(workspaceUri).catch(err => {
+        getLogger().debug('extension.activate: migration prompt failed', err);
+    });
+
     const importService = new ImportService(workspaceUri);
     const treeProvider = new SkillBridgeTreeProvider();
 

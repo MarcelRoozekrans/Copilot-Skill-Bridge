@@ -77,6 +77,9 @@ export interface BridgeManifest {
         checkInterval: number;
         autoAcceptUpdates: boolean;
     };
+    migration?: {
+        skillsPrompted?: boolean;
+    };
 }
 
 export interface ConversionResult {
