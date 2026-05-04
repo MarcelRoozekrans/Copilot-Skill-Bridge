@@ -1,6 +1,7 @@
 import * as assert from 'assert';
 import { createEmptyManifest, computeHash, isSkillImported, isSkillOutdated, recordImport, removeSkillRecord, isMcpServerImported, recordMcpImport, removeMcpRecord, setSkillEmbedded, isSkillEmbedded, recordMarketplace } from '../../stateManager';
 import { BridgeManifest } from '../../types';
+import { SkillsScope } from '../../skillsPath';
 
 describe('createEmptyManifest', () => {
     it('should return a valid empty manifest', () => {
@@ -241,6 +242,27 @@ describe('recordImport preserves embedded', () => {
         const m = createEmptyManifest();
         const updated = recordImport(m, 'new-skill', 'src', 'hash');
         assert.strictEqual(updated.skills['new-skill'].embedded, false);
+    });
+});
+
+describe('recordImport with scope', () => {
+    it('records the scope when provided', () => {
+        const empty = createEmptyManifest();
+        const updated = recordImport(empty, 'foo', 'plug@repo', 'abc123', 'user');
+        assert.strictEqual(updated.skills['foo'].scope, 'user');
+    });
+
+    it('omits scope for legacy callers', () => {
+        const empty = createEmptyManifest();
+        const updated = recordImport(empty, 'foo', 'plug@repo', 'abc123');
+        assert.strictEqual(updated.skills['foo'].scope, undefined);
+    });
+
+    it('preserves existing scope when re-importing without it', () => {
+        const empty = createEmptyManifest();
+        const first = recordImport(empty, 'foo', 'plug@repo', 'abc123', 'workspace');
+        const second = recordImport(first, 'foo', 'plug@repo', 'def456');
+        assert.strictEqual(second.skills['foo'].scope, 'workspace');
     });
 });
 

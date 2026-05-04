@@ -54,7 +54,8 @@ export function recordImport(
     manifest: BridgeManifest,
     skillName: string,
     source: string,
-    contentHash: string
+    contentHash: string,
+    scope?: 'user' | 'workspace',
 ): BridgeManifest {
     const existing = manifest.skills[skillName];
     return {
@@ -68,6 +69,7 @@ export function recordImport(
                 importedAt: new Date().toISOString(),
                 locallyModified: false,
                 embedded: existing?.embedded ?? false,
+                scope: scope ?? existing?.scope,
             },
         },
     };

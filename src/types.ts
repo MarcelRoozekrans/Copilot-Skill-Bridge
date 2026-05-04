@@ -66,6 +66,7 @@ export interface SkillImportState {
     importedAt: string;
     locallyModified: boolean;
     embedded?: boolean;
+    scope?: 'user' | 'workspace';
 }
 
 export interface BridgeManifest {
