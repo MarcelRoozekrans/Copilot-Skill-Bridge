@@ -244,6 +244,27 @@ describe('recordImport preserves embedded', () => {
     });
 });
 
+describe('recordImport with scope', () => {
+    it('records the scope when provided', () => {
+        const empty = createEmptyManifest();
+        const updated = recordImport(empty, 'foo', 'plug@repo', 'abc123', 'user');
+        assert.strictEqual(updated.skills['foo'].scope, 'user');
+    });
+
+    it('omits scope for legacy callers', () => {
+        const empty = createEmptyManifest();
+        const updated = recordImport(empty, 'foo', 'plug@repo', 'abc123');
+        assert.strictEqual(updated.skills['foo'].scope, undefined);
+    });
+
+    it('preserves existing scope when re-importing without it', () => {
+        const empty = createEmptyManifest();
+        const first = recordImport(empty, 'foo', 'plug@repo', 'abc123', 'workspace');
+        const second = recordImport(first, 'foo', 'plug@repo', 'def456');
+        assert.strictEqual(second.skills['foo'].scope, 'workspace');
+    });
+});
+
 describe('recordMarketplace', () => {
     it('should add a new marketplace entry', () => {
         const m = createEmptyManifest();

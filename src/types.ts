@@ -2,7 +2,7 @@ export type SkillStatus = 'synced' | 'available' | 'update-available' | 'conflic
 
 export type SkillSource = 'local' | 'remote' | 'both';
 
-export type OutputFormat = 'instructions' | 'prompts';
+export type OutputFormat = 'instructions' | 'prompts' | 'skills';
 
 export interface CompanionFile {
     name: string;
@@ -66,6 +66,7 @@ export interface SkillImportState {
     importedAt: string;
     locallyModified: boolean;
     embedded?: boolean;
+    scope?: 'user' | 'workspace';
 }
 
 export interface BridgeManifest {
@@ -75,6 +76,9 @@ export interface BridgeManifest {
     settings: {
         checkInterval: number;
         autoAcceptUpdates: boolean;
+    };
+    migration?: {
+        skillsPrompted?: boolean;
     };
 }
 

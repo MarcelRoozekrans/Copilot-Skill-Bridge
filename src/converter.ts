@@ -43,7 +43,7 @@ const CONVERSION_RULES: Array<{ pattern: RegExp; replacement: string }> = [
     { pattern: /(?<![/:.])\bClaude\b(?![./])/g, replacement: 'the AI assistant' },
 ];
 
-export type OutputFormat = 'instructions' | 'prompts';
+export type OutputFormat = 'instructions' | 'prompts' | 'skills';
 
 export function convertSkillContent(content: string, outputFormats?: OutputFormat[]): string {
     let result = content;
@@ -97,6 +97,16 @@ export function generateFullPromptFile(name: string, description: string, conver
 name: ${name}
 description: '${description.replace(/'/g, "''")}'
 agent: agent
+---
+
+${convertedBody}
+`;
+}
+
+export function generateSkillFile(name: string, description: string, convertedBody: string): string {
+    return `---
+name: ${name}
+description: '${description.replace(/'/g, "''")}'
 ---
 
 ${convertedBody}

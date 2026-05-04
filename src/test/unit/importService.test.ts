@@ -202,6 +202,136 @@ describe('ImportService.writeSkillFiles prompt format', () => {
     });
 });
 
+describe('ImportService.writeSkillFiles skills format', () => {
+    const workspaceUri = { fsPath: '/tmp/test-workspace', path: '/tmp/test-workspace' } as any;
+    let service: ImportService;
+    const vscode = require('vscode');
+    let writtenFiles: Array<{ path: string; content: string }>;
+    let origWriteFile: any;
+    let origCreateDir: any;
+    let origShowInfo: any;
+
+    before(() => {
+        origWriteFile = vscode.workspace.fs.writeFile;
+        origCreateDir = vscode.workspace.fs.createDirectory;
+        origShowInfo = vscode.window.showInformationMessage;
+    });
+
+    beforeEach(() => {
+        service = new ImportService(workspaceUri);
+        writtenFiles = [];
+        vscode.workspace.fs.writeFile = async (uri: any, buf: Uint8Array) => {
+            writtenFiles.push({ path: uri.fsPath, content: Buffer.from(buf).toString('utf-8') });
+        };
+        vscode.workspace.fs.createDirectory = async () => {};
+        vscode.window.showInformationMessage = async () => 'Import';
+    });
+
+    afterEach(() => {
+        vscode.workspace.fs.writeFile = origWriteFile;
+        vscode.workspace.fs.createDirectory = origCreateDir;
+        vscode.window.showInformationMessage = origShowInfo;
+    });
+
+    it('writes SKILL.md when outputFormats=["skills"]', async () => {
+        const skill = makeSkill();
+        await service.importSkill(skill, ['skills'], false);
+        const skillFile = writtenFiles.find(f => f.path.endsWith('SKILL.md'));
+        assert.ok(skillFile, `expected SKILL.md write, got: ${writtenFiles.map(f => f.path).join(', ')}`);
+        assert.ok(skillFile!.content.includes('name: test-skill'));
+        assert.ok(!writtenFiles.some(f => f.path.endsWith('.instructions.md')));
+        assert.ok(!writtenFiles.some(f => f.path.endsWith('.prompt.md')));
+    });
+
+    it('writes companion files verbatim alongside SKILL.md', async () => {
+        const skill = makeSkill({
+            companionFiles: [{ name: 'helper.md', content: 'helper body' }],
+        });
+        await service.importSkill(skill, ['skills'], false);
+        const helper = writtenFiles.find(f => f.path.endsWith('helper.md') && !f.path.endsWith('SKILL.md'));
+        assert.ok(helper, 'helper.md should be written');
+        assert.ok(!writtenFiles.some(f => f.path.endsWith('test-skill-helper.md')));
+    });
+});
+
+describe('ImportService.removeSkill skills format', () => {
+    const workspaceUri = { fsPath: '/tmp/test-workspace', path: '/tmp/test-workspace' } as any;
+    const vscode = require('vscode');
+    let service: ImportService;
+    let deletedPaths: string[];
+    let origDelete: any;
+    let origReadFile: any;
+    let origWriteFile: any;
+    let origShowInfo: any;
+
+    before(() => {
+        origDelete = vscode.workspace.fs.delete;
+        origReadFile = vscode.workspace.fs.readFile;
+        origWriteFile = vscode.workspace.fs.writeFile;
+        origShowInfo = vscode.window.showInformationMessage;
+    });
+
+    function setupManifestRead(scope: 'user' | 'workspace' | undefined) {
+        const skillEntry: Record<string, unknown> = {
+            source: 'p@m',
+            sourceHash: 'h',
+            importedHash: 'h',
+            importedAt: '',
+            locallyModified: false,
+        };
+        if (scope) {
+            skillEntry.scope = scope;
+        }
+        const manifest = {
+            skills: { 'test-skill': skillEntry },
+            mcpServers: {},
+            marketplaces: [],
+            settings: { checkInterval: 86400, autoAcceptUpdates: false },
+        };
+        vscode.workspace.fs.readFile = async () => Buffer.from(JSON.stringify(manifest));
+    }
+
+    beforeEach(() => {
+        service = new ImportService(workspaceUri);
+        deletedPaths = [];
+        vscode.workspace.fs.delete = async (uri: any) => {
+            deletedPaths.push(uri.fsPath);
+        };
+        vscode.workspace.fs.writeFile = async () => {};
+        vscode.window.showInformationMessage = async () => undefined;
+    });
+
+    afterEach(() => {
+        vscode.workspace.fs.delete = origDelete;
+        vscode.workspace.fs.readFile = origReadFile;
+        vscode.workspace.fs.writeFile = origWriteFile;
+        vscode.window.showInformationMessage = origShowInfo;
+    });
+
+    it('deletes the user-scope skills folder when scope=user', async () => {
+        setupManifestRead('user');
+        await service.removeSkill('test-skill', false, undefined, 'user');
+        const folderDelete = deletedPaths.find(p =>
+            p.includes('test-skill') &&
+            !p.includes('.github\\instructions') && !p.includes('.github/instructions') &&
+            !p.includes('.github\\prompts') && !p.includes('.github/prompts'),
+        );
+        assert.ok(folderDelete, `expected skill folder delete, got: ${deletedPaths.join(', ')}`);
+    });
+
+    it('does not call removeSkillFolder for legacy entries with no recorded scope', async () => {
+        setupManifestRead(undefined);
+        await service.removeSkill('test-skill', false, undefined, 'user');
+        const folderDeletes = deletedPaths.filter(p =>
+            p.includes('test-skill') &&
+            !p.includes('.github\\instructions') && !p.includes('.github/instructions') &&
+            !p.includes('.github\\prompts') && !p.includes('.github/prompts'),
+        );
+        assert.strictEqual(folderDeletes.length, 0,
+            `expected no skill folder delete for legacy entries, got: ${folderDeletes.join(', ')}`);
+    });
+});
+
 describe('ImportService MCP methods', () => {
     const workspaceUri = { fsPath: '/tmp/test-workspace', path: '/tmp/test-workspace' } as any;
     let service: ImportService;

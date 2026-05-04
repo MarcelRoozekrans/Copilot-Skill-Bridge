@@ -38,12 +38,30 @@ Copilot Skill Bridge discovers skills from local Claude plugin caches and remote
 
 ## Output Formats
 
-The extension supports two output formats controlled by `copilotSkillBridge.outputFormats`:
+The extension supports three output formats controlled by `copilotSkillBridge.outputFormats`:
 
-- **`prompts`** (default) -- Generates `.github/prompts/<name>.prompt.md` files. These are invoked on-demand via Copilot `/slash-commands` with zero context overhead until you use them.
+- **`skills`** (default, recommended) -- Generates native `SKILL.md` folders that GitHub Copilot reads directly. Companion files keep their original names alongside `SKILL.md`. See [Skills (recommended)](#skills-recommended) below.
+- **`prompts`** -- Generates `.github/prompts/<name>.prompt.md` files. These are invoked on-demand via Copilot `/slash-commands` with zero context overhead until you use them.
 - **`instructions`** -- Generates `.github/instructions/<name>.instructions.md` files with an `applyTo: '**/*'` frontmatter. These are automatically loaded by Copilot on every message.
 
-When only `prompts` is selected, the full converted skill content is embedded directly in the prompt file. When both formats are selected, the prompt file is a pointer to the instructions file.
+When only `prompts` is selected, the full converted skill content is embedded directly in the prompt file. When both `prompts` and `instructions` are selected, the prompt file is a pointer to the instructions file.
+
+### Skills (recommended)
+
+`skills` writes a native [Copilot Agent Skill](https://docs.github.com/en/copilot) -- a `SKILL.md` with `name`/`description` frontmatter plus any companion `.md` files, all under one folder per skill. Body content still goes through the same conversion pipeline (e.g. `TodoWrite` -> task checklist) so skills behave correctly under Copilot.
+
+**Where skills install** is controlled by `copilotSkillBridge.skillsScope`:
+
+- **`user`** (default) -- Installs to `~/.claude/skills/<name>/`. Like installing a VS Code extension: install once, available in every workspace, no clutter in your repo.
+- **`workspace`** -- Installs to `.github/skills/<name>/`. Committed with the project and shared with the team. Use this when a skill should travel with the codebase.
+
+Override the path entirely with `copilotSkillBridge.skillsPath` (supports `~` expansion; relative paths anchor at the workspace root for `workspace` scope).
+
+**Migration:** existing users on the old `instructions`/`prompts` defaults will see a one-time prompt offering to switch to the new `skills` default.
+
+**Requirements:**
+- GitHub Copilot extension from December 2025 or later (native `SKILL.md` support shipped Dec 18, 2025).
+- Skills only fire in Copilot **Agent mode** -- they will not be picked up in Ask, Edit, or Inline modes. Switch to Agent mode in the Copilot Chat view to use them.
 
 ## Settings
 
@@ -53,7 +71,9 @@ When only `prompts` is selected, the full converted skill content is embedded di
 | `copilotSkillBridge.marketplaces` | `string[]` | `[]` | GitHub repos to fetch marketplace skills from |
 | `copilotSkillBridge.checkInterval` | `number` | `86400` | Remote update check interval in seconds |
 | `copilotSkillBridge.autoAcceptUpdates` | `boolean` | `false` | Automatically accept skill updates without prompting |
-| `copilotSkillBridge.outputFormats` | `string[]` | `["prompts"]` | Which Copilot file formats to generate (`instructions`, `prompts`, or both) |
+| `copilotSkillBridge.outputFormats` | `string[]` | `["skills"]` | Which Copilot file formats to generate. `skills` writes native `SKILL.md` (recommended); `instructions`/`prompts` use the legacy conversion pipeline |
+| `copilotSkillBridge.skillsScope` | `string` | `"user"` | Where to install skills: `user` (`~/.claude/skills`, clean repo) or `workspace` (`.github/skills`, committed) |
+| `copilotSkillBridge.skillsPath` | `string` | `""` | Override the skills install path. Empty = scope default. Supports `~` expansion |
 | `copilotSkillBridge.generateRegistry` | `boolean` | `true` | Add skill registry to copilot-instructions.md |
 | `copilotSkillBridge.useLmConversion` | `boolean` | `true` | Use Copilot Language Model API for deeper semantic conversion |
 
@@ -92,7 +112,7 @@ Claude Code skills use Claude-specific tool names, file paths, and conventions t
 2. **Analyzes** each skill for compatibility -- skills requiring sub-agent dispatch or parallel agents are flagged as incompatible. Meta-orchestrator skills are allowed (`copilot-instructions.md` serves this role). MCP-dependent skills (e.g. memory tools) are allowed when a matching server is available from the plugin, your workspace, or the system.
 3. **Converts** compatible skills by applying 27 regex transformation rules (e.g. `TodoWrite` -> task checklist, `claude mcp add` -> VS Code config, `CLAUDE.md` -> `.github/copilot-instructions.md`, `superpowers:skill-name` -> instruction file references). Optionally passes through the Copilot Language Model API for deeper semantic conversion.
 4. **Resolves** cross-plugin skill dependencies and MCP server requirements, offering auto-install of missing dependencies before writing. Meta-orchestrator skills from transitive dependency repos are automatically included.
-5. **Writes** the converted content as `.github/prompts/*.prompt.md` and/or `.github/instructions/*.instructions.md` files, including companion files. A slim registry table is appended to `copilot-instructions.md` with skill names and file paths, so Copilot knows which skills are available. The registry references the correct file paths based on your configured output format.
+5. **Writes** the converted content. By default this is a native `SKILL.md` folder under `~/.claude/skills/<name>/` (user scope) or `.github/skills/<name>/` (workspace scope), with companion files alongside. The legacy `prompts` and `instructions` formats remain available and write to `.github/prompts/*.prompt.md` and/or `.github/instructions/*.instructions.md` respectively. When the legacy formats are used, a slim registry table is appended to `copilot-instructions.md` with skill names and file paths so Copilot knows which skills are available.
 6. **Manages** MCP server configurations by discovering them from `plugin.json` (inline objects or string path references) with `.mcp.json` fallback, and converting to VS Code's `.vscode/mcp.json` format with automatic secret input detection for environment variables.
 
 ## License

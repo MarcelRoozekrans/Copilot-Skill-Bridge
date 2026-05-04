@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { SkillStatus, SkillInfo, PluginInfo, MarketplaceInfo, SkillImportState, BridgeManifest, McpServerInfo, ClaudeMcpServerConfig, McpServerRecord, CompanionFile } from '../../types';
+import { SkillStatus, SkillInfo, PluginInfo, MarketplaceInfo, SkillImportState, BridgeManifest, McpServerInfo, ClaudeMcpServerConfig, McpServerRecord, CompanionFile, OutputFormat } from '../../types';
 
 describe('Types', () => {
     it('should create a valid SkillInfo', () => {
@@ -144,5 +144,11 @@ describe('Types', () => {
         assert.strictEqual(plugin.mcpServers!.length, 1);
         assert.strictEqual(plugin.mcpServers![0].name, 'my-mcp-server');
         assert.strictEqual(plugin.mcpServers![0].config.command, 'node');
+    });
+
+    it('should accept "skills" as an OutputFormat value', () => {
+        const formats: OutputFormat[] = ['instructions', 'prompts', 'skills'];
+        assert.strictEqual(formats.length, 3);
+        assert.ok(formats.includes('skills'));
     });
 });

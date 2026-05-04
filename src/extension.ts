@@ -3,7 +3,7 @@ import { SkillBridgeTreeProvider, SkillTreeItem } from './treeView';
 import { ImportService } from './importService';
 import { UpdateWatcher } from './updateWatcher';
 import { loadManifest, saveManifest, updateMarketplaceLastChecked } from './stateManager';
-import { DiscoveryError } from './types';
+import { BridgeManifest, DiscoveryError } from './types';
 import { installPluginInClaudeCache, fetchPluginJson } from './claudeInstaller';
 import { initLogger, getLogger } from './logger';
 
@@ -18,6 +18,44 @@ class SkillContentProvider implements vscode.TextDocumentContentProvider {
         const key = uri.path.replace(/\.md$/, '');
         return skillContentStore.get(key) ?? '';
     }
+}
+
+/**
+ * One-time migration prompt: if the user already has imported skills under the
+ * legacy `instructions`/`prompts` outputs but hasn't yet opted into `skills`,
+ * ask whether they'd like to switch. The decision is recorded in the manifest
+ * so we never re-prompt.
+ */
+export async function maybePromptSkillsMigration(workspaceUri: vscode.Uri): Promise<void> {
+    const manifest = await loadManifest(workspaceUri);
+    const hasSkills = Object.keys(manifest.skills).length > 0;
+    const alreadyPrompted = manifest.migration?.skillsPrompted === true;
+    const config = vscode.workspace.getConfiguration('copilotSkillBridge');
+    const inspected = config.inspect<string[]>('outputFormats');
+    const userSet = inspected?.workspaceValue ?? inspected?.workspaceFolderValue ?? inspected?.globalValue;
+    const userExplicitlyOnSkills = Array.isArray(userSet) && userSet.includes('skills');
+
+    if (!hasSkills || alreadyPrompted || userExplicitlyOnSkills) { return; }
+
+    const choice = await vscode.window.showInformationMessage(
+        'GitHub Copilot now reads SKILL.md natively. Switch CopilotBridge to write skills directly?',
+        { modal: false },
+        'Switch (recommended)',
+        'Hybrid (skills + prompts)',
+        'Keep current',
+    );
+
+    if (choice === 'Switch (recommended)') {
+        await config.update('outputFormats', ['skills'], vscode.ConfigurationTarget.Workspace);
+    } else if (choice === 'Hybrid (skills + prompts)') {
+        await config.update('outputFormats', ['skills', 'prompts'], vscode.ConfigurationTarget.Workspace);
+    }
+
+    const updated: BridgeManifest = {
+        ...manifest,
+        migration: { ...(manifest.migration ?? {}), skillsPrompted: true },
+    };
+    await saveManifest(workspaceUri, updated);
 }
 
 export async function activate(context: vscode.ExtensionContext) {
@@ -197,10 +235,18 @@ export async function activate(context: vscode.ExtensionContext) {
             outputFormats: config.get<string[]>('outputFormats', ['prompts']),
             generateRegistry: config.get<boolean>('generateRegistry', true),
             useLmConversion: config.get<boolean>('useLmConversion', false),
+            skillsScope: config.get<'user' | 'workspace'>('skillsScope', 'user'),
+            skillsPath: config.get<string | undefined>('skillsPath', undefined),
         };
     }
 
     const workspaceUri = workspaceFolder.uri;
+
+    // Fire-and-forget migration prompt — never block activation.
+    void maybePromptSkillsMigration(workspaceUri).catch(err => {
+        getLogger().debug('extension.activate: migration prompt failed', err);
+    });
+
     const importService = new ImportService(workspaceUri);
     const treeProvider = new SkillBridgeTreeProvider();
 
@@ -280,9 +326,9 @@ export async function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(
         vscode.commands.registerCommand('copilotSkillBridge.importSkill', async (item?: SkillTreeItem) => {
             if (item?.skillInfo) {
-                const { outputFormats, generateRegistry, useLmConversion } = getConfig();
+                const { outputFormats, generateRegistry, useLmConversion, skillsScope, skillsPath } = getConfig();
                 try {
-                    await importService.importSkill(item.skillInfo, outputFormats, generateRegistry, useLmConversion);
+                    await importService.importSkill(item.skillInfo, outputFormats, generateRegistry, useLmConversion, skillsScope, skillsPath);
                 } catch (err) {
                     const msg = err instanceof Error ? err.message : String(err);
                     vscode.window.showErrorMessage(`Import failed for "${item.skillInfo.name}": ${msg}`);
@@ -295,9 +341,9 @@ export async function activate(context: vscode.ExtensionContext) {
 
         vscode.commands.registerCommand('copilotSkillBridge.updateSkill', async (item?: SkillTreeItem) => {
             if (item?.skillInfo) {
-                const { outputFormats, generateRegistry, useLmConversion } = getConfig();
+                const { outputFormats, generateRegistry, useLmConversion, skillsScope, skillsPath } = getConfig();
                 try {
-                    await importService.updateSkill(item.skillInfo, outputFormats, generateRegistry, useLmConversion);
+                    await importService.updateSkill(item.skillInfo, outputFormats, generateRegistry, useLmConversion, skillsScope, skillsPath);
                 } catch (err) {
                     const msg = err instanceof Error ? err.message : String(err);
                     vscode.window.showErrorMessage(`Update failed for "${item.skillInfo.name}": ${msg}`);
@@ -314,14 +360,16 @@ export async function activate(context: vscode.ExtensionContext) {
                 vscode.window.showWarningMessage('Select a plugin from the Copilot Skill Bridge sidebar.');
                 return;
             }
-            const { outputFormats, generateRegistry, useLmConversion } = getConfig();
+            const { outputFormats, generateRegistry, useLmConversion, skillsScope, skillsPath } = getConfig();
             try {
                 await importService.importAllSkills(
                     plugin.skills,
                     outputFormats,
                     generateRegistry,
                     plugin.mcpServers,
-                    useLmConversion
+                    useLmConversion,
+                    skillsScope,
+                    skillsPath,
                 );
             } catch (err) {
                 const msg = err instanceof Error ? err.message : String(err);
@@ -337,9 +385,9 @@ export async function activate(context: vscode.ExtensionContext) {
 
         vscode.commands.registerCommand('copilotSkillBridge.removeSkill', async (item?: SkillTreeItem) => {
             if (item?.skillInfo) {
-                const { generateRegistry, outputFormats } = getConfig();
+                const { generateRegistry, outputFormats, skillsScope, skillsPath } = getConfig();
                 try {
-                    await importService.removeSkill(item.skillInfo.name, generateRegistry, outputFormats as import('./types').OutputFormat[]);
+                    await importService.removeSkill(item.skillInfo.name, generateRegistry, outputFormats as import('./types').OutputFormat[], skillsScope, skillsPath);
                 } catch (err) {
                     const msg = err instanceof Error ? err.message : String(err);
                     vscode.window.showErrorMessage(`Remove failed for "${item.skillInfo.name}": ${msg}`);
@@ -495,9 +543,9 @@ export async function activate(context: vscode.ExtensionContext) {
                 : importService.getPluginsByMarketplaceTransitive(repo);
             const allSkills = plugins.flatMap(p => p.skills);
             const allMcpServers = plugins.flatMap(p => p.mcpServers ?? []);
-            const { outputFormats, generateRegistry, useLmConversion } = getConfig();
+            const { outputFormats, generateRegistry, useLmConversion, skillsScope, skillsPath } = getConfig();
             try {
-                await importService.importAllSkills(allSkills, outputFormats, generateRegistry, allMcpServers, useLmConversion);
+                await importService.importAllSkills(allSkills, outputFormats, generateRegistry, allMcpServers, useLmConversion, skillsScope, skillsPath);
             } catch (err) {
                 const msg = err instanceof Error ? err.message : String(err);
                 vscode.window.showErrorMessage(`Import All failed: ${msg}`);

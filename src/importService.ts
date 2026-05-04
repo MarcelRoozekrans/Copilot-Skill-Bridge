@@ -1,6 +1,8 @@
 import * as vscode from 'vscode';
 import { SkillInfo, PluginInfo, ConversionResult, McpServerInfo, BulkImportResult, DiscoveryResult, DiscoveryError, DependencyGraph, BridgeManifest } from './types';
-import { convertSkillContent, generateInstructionsFile, generatePromptFile, generateFullPromptFile, generateRegistryEntry, OutputFormat } from './converter';
+import { convertSkillContent, generateInstructionsFile, generatePromptFile, generateFullPromptFile, generateRegistryEntry, generateSkillFile, OutputFormat } from './converter';
+import { writeSkillFolder, removeSkillFolder } from './skillsWriter';
+import { resolveSkillsRoot, SkillsScope } from './skillsPath';
 import { parseSkillFrontmatter } from './parser';
 import { computeHash, loadManifest, saveManifest, recordImport, removeSkillRecord, recordMcpImport, removeMcpRecord, isMcpServerImported, setSkillEmbedded, isSkillImported, recordMarketplace } from './stateManager';
 import { fetchLatestCommitSha } from './remoteReader';
@@ -186,7 +188,14 @@ export class ImportService {
         };
     }
 
-    async importSkill(skill: SkillInfo, outputFormats: string[], generateRegistry: boolean, useLm?: boolean): Promise<void> {
+    async importSkill(
+        skill: SkillInfo,
+        outputFormats: string[],
+        generateRegistry: boolean,
+        useLm?: boolean,
+        skillsScope: SkillsScope = 'user',
+        skillsPath?: string,
+    ): Promise<void> {
         const compat = analyzeCompatibility(skill, [], {}, {});
         if (!compat.compatible) {
             vscode.window.showWarningMessage(
@@ -229,7 +238,7 @@ export class ImportService {
                 let depManifest = await loadManifest(this.workspaceUri);
                 for (const depSkill of missingSkills) {
                     const depConversion = await this.convertSkill(depSkill, outputFormats as OutputFormat[], useLm);
-                    depManifest = await this.writeSkillFiles(depSkill, depConversion, outputFormats, depManifest);
+                    depManifest = await this.writeSkillFiles(depSkill, depConversion, outputFormats, depManifest, skillsScope, skillsPath);
                 }
                 await saveManifest(this.workspaceUri, depManifest);
                 if (generateRegistry) {
@@ -242,7 +251,7 @@ export class ImportService {
         }
 
         let manifest = await loadManifest(this.workspaceUri);
-        manifest = await this.writeSkillFiles(skill, conversion, outputFormats, manifest);
+        manifest = await this.writeSkillFiles(skill, conversion, outputFormats, manifest, skillsScope, skillsPath);
         await saveManifest(this.workspaceUri, manifest);
         if (generateRegistry) {
             await this.updateRegistry(manifest, outputFormats as OutputFormat[]);
@@ -250,7 +259,14 @@ export class ImportService {
         vscode.window.showInformationMessage(`Imported skill: ${skill.name}`);
     }
 
-    async updateSkill(skill: SkillInfo, outputFormats: string[], generateRegistry: boolean, useLm?: boolean): Promise<void> {
+    async updateSkill(
+        skill: SkillInfo,
+        outputFormats: string[],
+        generateRegistry: boolean,
+        useLm?: boolean,
+        skillsScope: SkillsScope = 'user',
+        skillsPath?: string,
+    ): Promise<void> {
         const compat = analyzeCompatibility(skill, [], {}, {});
         if (!compat.compatible) {
             vscode.window.showWarningMessage(
@@ -268,7 +284,7 @@ export class ImportService {
 
         const conversion = await this.convertSkill(skill, outputFormats as OutputFormat[], useLm);
         let manifest = await loadManifest(this.workspaceUri);
-        manifest = await this.writeSkillFiles(skill, conversion, outputFormats, manifest);
+        manifest = await this.writeSkillFiles(skill, conversion, outputFormats, manifest, skillsScope, skillsPath);
         await saveManifest(this.workspaceUri, manifest);
         if (generateRegistry) {
             await this.updateRegistry(manifest, outputFormats as OutputFormat[]);
@@ -281,7 +297,9 @@ export class ImportService {
         outputFormats: string[],
         generateRegistry: boolean,
         mcpServers?: McpServerInfo[],
-        useLm?: boolean
+        useLm?: boolean,
+        skillsScope: SkillsScope = 'user',
+        skillsPath?: string,
     ): Promise<BulkImportResult> {
         const result: BulkImportResult = { imported: [], failed: [] };
         if (skills.length === 0 && (!mcpServers || mcpServers.length === 0)) {
@@ -450,7 +468,7 @@ export class ImportService {
                     progress.report({ message: `Writing ${skill.name}...`, increment: writeIncrement });
 
                     try {
-                        manifest = await this.writeSkillFiles(skill, conversion, outputFormats, manifest);
+                        manifest = await this.writeSkillFiles(skill, conversion, outputFormats, manifest, skillsScope, skillsPath);
                         result.imported.push(skill.name);
                     } catch (err) {
                         const msg = err instanceof Error ? err.message : String(err);
@@ -500,7 +518,9 @@ export class ImportService {
         skill: SkillInfo,
         conversion: ConversionResult,
         outputFormats: string[],
-        manifest: BridgeManifest
+        manifest: BridgeManifest,
+        skillsScope: SkillsScope = 'user',
+        skillsPath?: string,
     ): Promise<BridgeManifest> {
         const hash = computeHash(skill.content);
         const source = `${skill.pluginName}@${skill.marketplace}`;
@@ -516,7 +536,9 @@ export class ImportService {
             await writePromptFile(this.workspaceUri, skill.name, promptContent);
         }
 
-        if (skill.companionFiles?.length) {
+        // Skip the legacy companion writer when only 'skills' is selected;
+        // writeSkillFolder co-locates companions next to SKILL.md without prefixing.
+        if (skill.companionFiles?.length && (outputFormats.includes('instructions') || outputFormats.includes('prompts'))) {
             const promptsOnly = outputFormats.includes('prompts') && !outputFormats.includes('instructions');
             await writeCompanionFiles(
                 this.workspaceUri,
@@ -527,7 +549,14 @@ export class ImportService {
             );
         }
 
-        manifest = recordImport(manifest, skill.name, source, hash);
+        if (outputFormats.includes('skills')) {
+            const root = resolveSkillsRoot(skillsScope, skillsPath, this.workspaceUri);
+            const skillContent = generateSkillFile(skill.name, skill.description, conversion.convertedBody);
+            await writeSkillFolder(root, skill.name, skillContent, skill.companionFiles ?? []);
+        }
+
+        const recordedScope = outputFormats.includes('skills') ? skillsScope : undefined;
+        manifest = recordImport(manifest, skill.name, source, hash, recordedScope);
 
         if (isMetaOrchestratorSkill(skill)) {
             manifest = setSkillEmbedded(manifest, skill.name, true);
@@ -555,10 +584,24 @@ export class ImportService {
         return manifest;
     }
 
-    async removeSkill(skillName: string, generateRegistry: boolean, outputFormats?: OutputFormat[]): Promise<void> {
+    async removeSkill(
+        skillName: string,
+        generateRegistry: boolean,
+        outputFormats?: OutputFormat[],
+        // Recorded scope on the manifest is authoritative; param kept for caller symmetry with importSkill.
+        _skillsScope: SkillsScope = 'user',
+        skillsPath?: string,
+    ): Promise<void> {
+        let manifest = await loadManifest(this.workspaceUri);
+        const recordedScope = manifest.skills[skillName]?.scope;
+
         await removeSkillFiles(this.workspaceUri, skillName);
 
-        let manifest = await loadManifest(this.workspaceUri);
+        if (recordedScope) {
+            const root = resolveSkillsRoot(recordedScope, skillsPath, this.workspaceUri);
+            await removeSkillFolder(root, skillName);
+        }
+
         manifest = removeSkillRecord(manifest, skillName);
         await saveManifest(this.workspaceUri, manifest);
 
