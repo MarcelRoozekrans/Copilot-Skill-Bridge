@@ -252,6 +252,30 @@ describe('ImportService.writeSkillFiles skills format', () => {
         assert.ok(helper, 'helper.md should be written');
         assert.ok(!writtenFiles.some(f => f.path.endsWith('test-skill-helper.md')));
     });
+
+    it('skips the meta-orchestrator instructions write when in skills-only mode', async () => {
+        const skill = makeSkill({
+            name: 'using-superpowers',
+            content: '---\nname: using-superpowers\ndescription: Always-active skill\n---\n\nIf there is even a 1% chance, you must invoke the skill before any response.',
+        });
+        await service.importSkill(skill, ['skills'], false);
+        assert.ok(writtenFiles.some(f => f.path.endsWith('SKILL.md')),
+            'SKILL.md should be written');
+        assert.ok(!writtenFiles.some(f => f.path.includes('.github') && f.path.includes('instructions')),
+            `meta-orchestrator skill must not write to .github/instructions in skills-only mode; got: ${writtenFiles.map(f => f.path).join(', ')}`);
+    });
+
+    it('still writes meta-orchestrator instructions in mixed mode (skills + instructions)', async () => {
+        const skill = makeSkill({
+            name: 'using-superpowers',
+            content: '---\nname: using-superpowers\ndescription: Always-active skill\n---\n\nInvoke the skill before any response.',
+        });
+        await service.importSkill(skill, ['skills', 'instructions'], false);
+        assert.ok(writtenFiles.some(f => f.path.endsWith('SKILL.md')),
+            'SKILL.md should still be written');
+        assert.ok(writtenFiles.some(f => f.path.endsWith('using-superpowers.instructions.md')),
+            'instructions file should still be written when instructions output is selected');
+    });
 });
 
 describe('ImportService.removeSkill skills format', () => {
