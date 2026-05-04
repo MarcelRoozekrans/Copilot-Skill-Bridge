@@ -81,6 +81,30 @@ describe('ImportService.convertSkill', () => {
         assert.ok(!result.instructionsContent.includes('Agent tool'));
         assert.ok(result.instructionsContent.includes('break into subtasks'));
     });
+
+    it('should rewrite companion links with .md suffix for instructions output', async () => {
+        const skill = makeSkill({
+            content: '---\nname: parent\n---\n\nSee [reviewer](code-reviewer.md) for details.',
+            companionFiles: [{ name: 'code-reviewer.md', content: 'reviewer body' }],
+        });
+        const result = await service.convertSkill(skill, ['instructions']);
+        assert.ok(result.convertedBody.includes('](test-skill-code-reviewer.md)'),
+            `expected rewritten link, got: ${result.convertedBody}`);
+        assert.ok(!result.convertedBody.includes('](code-reviewer.md)'),
+            'original link should be replaced');
+    });
+
+    it('should rewrite companion links with .prompt.md suffix when promptsOnly', async () => {
+        const skill = makeSkill({
+            content: '---\nname: parent\n---\n\nSee [reviewer](code-reviewer.md) for details.',
+            companionFiles: [{ name: 'code-reviewer.md', content: 'reviewer body' }],
+        });
+        const result = await service.convertSkill(skill, ['prompts']);
+        assert.ok(result.convertedBody.includes('](test-skill-code-reviewer.prompt.md)'),
+            `expected .prompt.md link, got: ${result.convertedBody}`);
+        assert.ok(!result.convertedBody.includes('](test-skill-code-reviewer.md)'),
+            '.md link should not appear when promptsOnly');
+    });
 });
 
 describe('ImportService.writeSkillFiles prompt format', () => {
