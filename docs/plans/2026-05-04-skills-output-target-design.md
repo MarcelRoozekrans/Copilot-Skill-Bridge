@@ -1,0 +1,139 @@
+# Design: Native SKILL.md output for Copilot Agent Skills
+
+**Status:** Draft
+**Date:** 2026-05-04
+**Author:** Marcel + Claude
+
+## Problem
+
+CopilotBridge currently converts each Claude `SKILL.md` into two foreign formats:
+
+- `.github/instructions/<name>.instructions.md` — auto-attach via `applyTo` glob
+- `.github/prompts/<name>.prompt.md` — slash-command invocation
+
+This conversion exists because Copilot historically had no native skill format. The conversion does real work — registry table generation, link rewriting, companion-file prefixing, extension juggling — and most of the bridge's recent bugs (companion file naming, intra-content references) live in this conversion layer.
+
+As of December 18, 2025, GitHub Copilot ships **Agent Skills**: a native `SKILL.md` format identical in shape to Claude's. Copilot auto-discovers it from six paths, including `.claude/skills/` and `~/.claude/skills/` for direct interop. ([VS Code docs](https://code.visualstudio.com/docs/copilot/customization/agent-skills))
+
+This means most of the bridge's conversion work is now redundant for users on current Copilot.
+
+## Proposal
+
+Add a third output target — `skills` — that writes `SKILL.md` and companion files **verbatim** into a Copilot-recognized skills folder. No conversion. No rewriting.
+
+Make `skills` the default for new installs, while keeping `instructions` and `prompts` as opt-in for users who need them.
+
+## Why this works
+
+| Concern in current pipeline | How `skills` output sidesteps it |
+|---|---|
+| Companion file naming (`.prompt.md` vs `.md`) | Companions stay alongside `SKILL.md` in the same dir, original names preserved |
+| Markdown link rewriting (`](child.md)` → `](parent-child.prompt.md)`) | Source links remain valid because the companion sits in the same dir |
+| Plain-text path references (`.github/prompts/x.prompt.md`) | Source content is unchanged, references stay accurate to source layout |
+| Registry table in `copilot-instructions.md` | Not needed — Copilot discovers SKILL.md without a registry |
+| Tool name conversion (Read/Edit/TodoWrite → Copilot equivalents) | Open question — see below |
+
+## Output target options
+
+VS Code Agent Skills auto-discovers six paths. CopilotBridge should pick **one workspace path as default** and offer a setting:
+
+| Path | Scope | Pros | Cons |
+|---|---|---|---|
+| `.github/skills/<name>/SKILL.md` | Workspace, committed | Travels with repo, team-shared, lives next to existing `.github/instructions/` | New folder convention for users |
+| `.claude/skills/<name>/SKILL.md` | Workspace, committed | Direct Claude interop — same files work in both tools | `.claude/` is conventionally Claude-specific; mixing tooling there feels off |
+| `~/.claude/skills/<name>/SKILL.md` | User-global, uncommitted | Shared across all workspaces for the user | Not in version control; less reproducible |
+
+**Recommended default:** `.github/skills/<name>/SKILL.md`.
+
+Reasoning: it's the path GitHub itself documents first, mirrors the existing `.github/instructions/` convention users already know, and travels with the repo so a teammate cloning the project gets the same skills.
+
+Expose `copilotBridge.skillsOutputPath` setting for users who prefer `.claude/skills/` (interop) or `~/.claude/skills/` (user-global).
+
+## Format mapping
+
+| Claude SKILL.md field | Copilot SKILL.md field | Action |
+|---|---|---|
+| `name` | `name` | Pass through |
+| `description` | `description` | Pass through |
+| `argument-hint` | `argument-hint` | Pass through |
+| `user-invocable` | `user-invocable` | Pass through |
+| `disable-model-invocation` | `disable-model-invocation` | Pass through |
+| Body content | Body content | **Open: pass through, or apply tool-name conversion?** |
+| Companion files | Companion files | Copy verbatim into the skill dir |
+
+The frontmatter schemas appear identical for the fields that matter. Verify by smoke-testing one skill.
+
+## Tool name conversion — the one open question
+
+`src/converter.ts:convertSkillContent()` currently rewrites Claude tool names:
+
+- `TodoWrite` → `checklist`
+- `Read tool` → `file reading`
+- `CLAUDE.md` → `copilot-instructions.md`
+- ~40 more rules in [src/converter.ts](src/converter.ts)
+
+These rewrites assume the model is following imperative instructions like "Use the TodoWrite tool to track tasks." If we ship `SKILL.md` verbatim, those Claude-named tools appear in the body. Three possible behaviors:
+
+1. **Skip conversion entirely** — trust modern models (Claude/GPT/Gemini in Copilot) to map "use the Read tool" onto Copilot's file-read capability automatically. Cleanest. Highest risk.
+2. **Apply conversion to skills output too** — same conversion pipeline runs, only the file destination changes. Safest. Reintroduces some of the rewriting we wanted to skip, but link-rewriting and extension games still go away.
+3. **Smart routing** — detect whether the skill body has imperative tool references; if not, ship verbatim; if yes, convert. Overengineered.
+
+**Recommendation:** option 2 for the first release. The current conversion is already battle-tested; keeping it as the body transform while ditching the structural rewrites (links, companions, extensions, registry) captures most of the simplification benefit without a new failure mode. Revisit option 1 after a release of telemetry/feedback.
+
+## Mode gating
+
+Agent Skills only fire in Copilot **Agent mode** — not Ask, not Edit, not Inline. This is a real limitation: users primarily in Ask mode would lose access to skills entirely if we drop the `prompts` and `instructions` outputs.
+
+**Resolution:** never silently replace existing outputs. The `skills` target adds a new option; existing users keep their current behavior. New installs default to `skills` only, but the setting `copilotBridge.outputFormats` accepts `['skills', 'instructions', 'prompts']` in any combination.
+
+For users who want belt-and-braces coverage across all modes, document the recommended combo: `['skills', 'prompts']` — agent-mode discovery via SKILL.md, plus slash-command access in Ask/Edit via prompts.
+
+## Migration
+
+Existing users have skills already imported as `.instructions.md` / `.prompt.md`. The bridge tracks these in `.github/copilot-skill-bridge.json` (manifest).
+
+**No silent rewrites.** Plan:
+
+1. On extension upgrade, detect manifest entries that predate skills support.
+2. Show a one-time prompt: *"GitHub Copilot now reads SKILL.md natively. Switch to skills format? Existing prompts/instructions will remain until you remove them."*
+3. If user accepts: re-import all manifest entries into `.github/skills/`, leave the old files in place. User decides when to delete them.
+4. If user declines: respect the existing `outputFormats` setting; never auto-change.
+
+## Backwards compatibility
+
+- Older Copilot versions (pre-Dec 2025) won't pick up `SKILL.md`. Document a min Copilot version in README.
+- VS Code itself doesn't gate the feature — Copilot does. The bridge can't easily detect Copilot version, so we trust the user.
+
+## Implementation sketch
+
+New files:
+- `src/skillsWriter.ts` — `writeSkillFolder(workspaceUri, skill, conversion)` that creates `.github/skills/<slug>/` and writes `SKILL.md` + companions.
+
+Modified files:
+- `src/types.ts` — add `'skills'` to the `OutputFormat` union.
+- `src/converter.ts` — `generateSkillFile(skill, convertedBody)` that wraps body in passthrough frontmatter for the new path.
+- `src/importService.ts` — at `writeSkillFiles`, when `outputFormats.includes('skills')`, call `writeSkillFolder` in addition to (or instead of) the existing instructions/prompts writes.
+- `src/fileWriter.ts` — `removeSkillFiles` learns about `.github/skills/<slug>/` so cleanup works on un-import.
+- `src/extension.ts` — config schema adds `skills` to `outputFormats` enum; default for new installs becomes `['skills']`.
+
+Roughly 200–300 LOC + tests. Most existing conversion code stays — it gets reused for the body transform inside `SKILL.md`. The structural rewriting (link patching, companion prefixing, registry table) is bypassed when `outputFormats === ['skills']`.
+
+## Test plan
+
+- Unit: `writeSkillFolder` writes correct paths for `.github/skills/`, `.claude/skills/`, `~/.claude/skills/`.
+- Unit: companion files preserved with original names alongside SKILL.md.
+- Unit: frontmatter passthrough leaves `name` / `description` / `argument-hint` intact.
+- Integration: import a skill with companions in `skills` mode, verify on-disk layout.
+- Smoke: import the `requesting-code-review` skill (the one that exposed the recent bugs) in `skills` mode, verify links inside SKILL.md still resolve to the unprefixed companion next to it.
+
+## Decisions to confirm
+
+1. Default skills output path — recommended `.github/skills/`. Confirm or pick alternative.
+2. Tool-name conversion in body — recommended option 2 (keep current conversion, drop structural rewrites). Confirm.
+3. Default `outputFormats` for new installs — recommended `['skills']`. Confirm or prefer `['skills', 'prompts']` for mode coverage.
+4. Migration prompt UX — recommended one-time prompt on upgrade. Confirm or prefer silent / opt-in via command palette only.
+
+## Out of scope
+
+- Agent files (`.agent.md`) — separate concept, separate decision. The recent research showed Copilot also supports custom agents with model pinning and tool restrictions. That's a future enhancement.
+- Removing the existing instructions/prompts pipeline — keep it, just stop defaulting to it.
