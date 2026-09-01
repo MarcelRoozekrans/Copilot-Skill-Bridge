@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as crypto from 'crypto';
 import { BridgeManifest, SkillImportState } from './types';
 import { getLogger } from './logger';
+import { isFileNotFound } from './fsErrors';
 import { loadUserManifest, saveUserManifest } from './userManifest';
 
 const MANIFEST_FILENAME = '.copilot-skill-bridge.json';
@@ -38,7 +39,10 @@ async function loadWorkspaceManifest(workspaceUri: vscode.Uri): Promise<BridgeMa
         const raw = await vscode.workspace.fs.readFile(manifestUri);
         return JSON.parse(Buffer.from(raw).toString('utf-8')) as BridgeManifest;
     } catch (err) {
-        getLogger().debug('stateManager.loadWorkspaceManifest: empty manifest fallback', err);
+        // A missing file is the normal state for a workspace with no imports yet.
+        if (!isFileNotFound(err)) {
+            getLogger().warn('stateManager.loadWorkspaceManifest: unreadable manifest, using empty fallback', err);
+        }
         return createEmptyManifest();
     }
 }
