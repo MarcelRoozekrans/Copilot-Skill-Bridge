@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.24.2](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/compare/copilot-skill-bridge-v0.24.1...copilot-skill-bridge-v0.24.2) (2026-09-01)
+
+
+### Bug Fixes
+
+* make Install in Claude Code actually work ([#173](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/issues/173)) ([116ad52](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/commit/116ad52d1e1d4c9019e470230c5aff79cf02c877))
+
 ## [0.24.1](https://github.com/MarcelRoozekrans/Copilot-Skill-Bridge/compare/copilot-skill-bridge-v0.24.0...copilot-skill-bridge-v0.24.1) (2026-05-04)
 
 
