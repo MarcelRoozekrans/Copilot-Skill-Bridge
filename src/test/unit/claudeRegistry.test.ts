@@ -1,4 +1,5 @@
 import * as assert from 'assert';
+import * as path from 'path';
 import {
     pluginRegistryKey,
     upsertInstalledPlugin,
@@ -157,8 +158,8 @@ describe('upsertExtraKnownMarketplace', () => {
 
 describe('getClaudePluginsDir', () => {
     it('should resolve the plugins directory as the parent of the cache directory', () => {
-        const result = getClaudePluginsDir('C:\\Users\\x\\.claude\\plugins\\cache');
-        assert.ok(result.endsWith('plugins'), `expected plugins dir, got ${result}`);
-        assert.ok(!result.endsWith('cache'));
+        // Built with path.join so the separator matches the platform running the test.
+        const cache = path.join('home', '.claude', 'plugins', 'cache');
+        assert.strictEqual(getClaudePluginsDir(cache), path.join('home', '.claude', 'plugins'));
     });
 });
