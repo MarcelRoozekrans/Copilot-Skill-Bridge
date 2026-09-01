@@ -10,6 +10,35 @@ export function slugifySkillName(name: string): string {
         .replace(/^-|-$/g, '');
 }
 
+/**
+ * Directory name Claude Code uses for a marketplace inside its plugin cache.
+ *
+ * Claude keys `cache/<marketplace>/<plugin>/<version>/`, `installed_plugins.json`
+ * (`<plugin>@<marketplace>`) and `known_marketplaces.json` on the marketplace's
+ * declared name — never on the `owner/repo` slug. Repos published without a
+ * marketplace.json fall back to the repo's own name, matching how Claude names
+ * marketplaces added directly from a git URL.
+ */
+export function claudeMarketplaceDirName(plugin: PluginInfo): string {
+    const candidates = [
+        plugin.marketplaceName,
+        plugin.marketplace.split('/').pop(),
+        plugin.marketplace,
+    ];
+    for (const candidate of candidates) {
+        const safe = sanitizeDirName(candidate);
+        if (safe) { return safe; }
+    }
+    return 'unknown-marketplace';
+}
+
+/** Strip characters that are illegal in a path segment; reject traversal segments. */
+function sanitizeDirName(name: string | undefined): string {
+    if (!name) { return ''; }
+    const cleaned = name.trim().replace(/[\\/:*?"<>|]/g, '-');
+    return /^\.+$/.test(cleaned) ? '' : cleaned;
+}
+
 export async function installPluginInClaudeCache(
     plugin: PluginInfo,
     cachePath: string,
@@ -17,7 +46,7 @@ export async function installPluginInClaudeCache(
 ): Promise<void> {
     const resolvedPath = resolveClaudeCachePath(cachePath);
     const cacheUri = vscode.Uri.file(resolvedPath);
-    const marketplaceSlug = plugin.marketplace.replace(/\//g, '-');
+    const marketplaceSlug = claudeMarketplaceDirName(plugin);
 
     const versionUri = vscode.Uri.joinPath(cacheUri, marketplaceSlug, plugin.name, plugin.version);
 
@@ -63,6 +92,15 @@ export async function installPluginInClaudeCache(
     }
 }
 
+/**
+ * Repo-relative path of a plugin's plugin.json. Multi-plugin marketplaces keep each
+ * plugin under its own directory (e.g. plugins/<name>/), so the path must be anchored
+ * to the plugin's own sourcePath rather than the repo root.
+ */
+export function pluginJsonPath(plugin: PluginInfo): string {
+    return (plugin.sourcePath ?? '') + '.claude-plugin/plugin.json';
+}
+
 export async function fetchPluginJson(plugin: PluginInfo): Promise<string> {
-    return fetchFileContent(plugin.marketplace, '.claude-plugin/plugin.json');
+    return fetchFileContent(plugin.marketplace, pluginJsonPath(plugin));
 }

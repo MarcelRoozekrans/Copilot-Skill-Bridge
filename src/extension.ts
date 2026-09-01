@@ -3,11 +3,44 @@ import { SkillBridgeTreeProvider, SkillTreeItem } from './treeView';
 import { ImportService } from './importService';
 import { UpdateWatcher } from './updateWatcher';
 import { loadManifest, saveManifest, updateMarketplaceLastChecked } from './stateManager';
-import { BridgeManifest, DiscoveryError } from './types';
+import { BridgeManifest, DiscoveryError, PluginInfo } from './types';
 import { installPluginInClaudeCache, fetchPluginJson } from './claudeInstaller';
+import { registerPluginWithClaude } from './claudeRegistry';
+import { resolveClaudeCachePath } from './localReader';
+import { fetchLatestCommitSha } from './remoteReader';
 import { initLogger, getLogger } from './logger';
 
 let updateWatcher: UpdateWatcher | undefined;
+
+/**
+ * Install a plugin into Claude Code: write the payload into the plugin cache, then
+ * register it so Claude actually discovers and enables it. Writing the cache alone
+ * leaves the plugin inert.
+ *
+ * `shaCache` lets a bulk install resolve each marketplace's commit sha once instead
+ * of once per plugin.
+ */
+async function installPluginIntoClaude(
+    plugin: PluginInfo,
+    cachePath: string,
+    shaCache?: Map<string, string | undefined>,
+): Promise<void> {
+    const pluginJson = await fetchPluginJson(plugin);
+    await installPluginInClaudeCache(plugin, cachePath, pluginJson);
+
+    let sha = shaCache?.get(plugin.marketplace);
+    if (sha === undefined && !shaCache?.has(plugin.marketplace)) {
+        try {
+            sha = await fetchLatestCommitSha(plugin.marketplace);
+        } catch (err) {
+            getLogger().debug(`extension.installPluginIntoClaude: commit sha lookup failed for ${plugin.marketplace}`, err);
+            sha = undefined;
+        }
+        shaCache?.set(plugin.marketplace, sha);
+    }
+
+    await registerPluginWithClaude(plugin, resolveClaudeCachePath(cachePath), sha);
+}
 
 const skillContentScheme = 'skill-bridge';
 const skillContentStore = new Map<string, string>();
@@ -591,9 +624,8 @@ export async function activate(context: vscode.ExtensionContext) {
             }
             const { cachePath } = getConfig();
             try {
-                const pluginJson = await fetchPluginJson(plugin);
-                await installPluginInClaudeCache(plugin, cachePath, pluginJson);
-                vscode.window.showInformationMessage(`Installed "${plugin.name}" in Claude Code.`);
+                await installPluginIntoClaude(plugin, cachePath);
+                vscode.window.showInformationMessage(`Installed and enabled "${plugin.name}" in Claude Code. Restart Claude Code to pick it up.`);
             } catch (err) {
                 const msg = err instanceof Error ? err.message : String(err);
                 vscode.window.showErrorMessage(`Install in Claude Code failed for "${plugin.name}": ${msg}`);
@@ -608,9 +640,8 @@ export async function activate(context: vscode.ExtensionContext) {
             }
             const { cachePath } = getConfig();
             try {
-                const pluginJson = await fetchPluginJson(plugin);
-                await installPluginInClaudeCache(plugin, cachePath, pluginJson);
-                vscode.window.showInformationMessage(`Installed "${plugin.name}" in Claude Code.`);
+                await installPluginIntoClaude(plugin, cachePath);
+                vscode.window.showInformationMessage(`Installed and enabled "${plugin.name}" in Claude Code. Restart Claude Code to pick it up.`);
             } catch (err) {
                 const msg = err instanceof Error ? err.message : String(err);
                 vscode.window.showErrorMessage(`Install in Claude Code failed for "${plugin.name}": ${msg}`);
@@ -641,6 +672,7 @@ export async function activate(context: vscode.ExtensionContext) {
             if (choice !== 'Install') { return; }
 
             const { cachePath } = getConfig();
+            const shaCache = new Map<string, string | undefined>();
             let installed = 0;
             let failed = 0;
 
@@ -659,8 +691,7 @@ export async function activate(context: vscode.ExtensionContext) {
                             increment: (1 / plugins.length) * 100,
                         });
                         try {
-                            const pluginJson = await fetchPluginJson(plugin);
-                            await installPluginInClaudeCache(plugin, cachePath, pluginJson);
+                            await installPluginIntoClaude(plugin, cachePath, shaCache);
                             installed++;
                         } catch (err) {
                             failed++;
@@ -673,11 +704,11 @@ export async function activate(context: vscode.ExtensionContext) {
 
             if (failed === 0) {
                 vscode.window.showInformationMessage(
-                    `Installed ${installed} plugin(s) from "${repo}" in Claude Code.`
+                    `Installed and enabled ${installed} plugin(s) from "${repo}" in Claude Code. Restart Claude Code to pick them up.`
                 );
             } else {
                 vscode.window.showWarningMessage(
-                    `Installed ${installed} plugin(s), ${failed} failed from "${repo}" in Claude Code.`
+                    `Installed and enabled ${installed} plugin(s), ${failed} failed from "${repo}" in Claude Code. Restart Claude Code to pick them up.`
                 );
             }
         }),

@@ -90,6 +90,8 @@ export function parseGitHubRepoFromUrl(url: string): string | undefined {
 }
 
 export interface NormalizedMarketplace {
+    /** The marketplace's declared name, used as Claude Code's cache directory name */
+    name?: string;
     plugins: Array<{ name: string; description: string; version: string; source: string }>;
     /** Additional repos discovered from source.url redirect entries */
     sourceRedirectRepos: string[];
@@ -118,7 +120,11 @@ export function normalizeMarketplaceJson(raw: MarketplaceJson): NormalizedMarket
         });
     }
 
-    return { plugins, sourceRedirectRepos: [...new Set(sourceRedirectRepos)] };
+    return {
+        name: raw.name ?? raw.marketplace?.name,
+        plugins,
+        sourceRedirectRepos: [...new Set(sourceRedirectRepos)],
+    };
 }
 
 export function extractDependencies(raw: MarketplaceJson): string[] {
@@ -126,6 +132,20 @@ export function extractDependencies(raw: MarketplaceJson): string[] {
     return deps
         .map(d => d.startsWith('gh:') ? d.slice(3) : d)
         .filter(d => d.includes('/'));
+}
+
+/**
+ * Normalize a marketplace entry's `source`/`path` into a repo-relative directory
+ * prefix: '' for the repo root, otherwise a path with a single trailing slash and
+ * no leading './'.
+ */
+export function normalizePluginBasePath(source: string): string {
+    const trimmed = source
+        .trim()
+        .replace(/^\.\/+/, '')
+        .replace(/^\/+/, '')
+        .replace(/\/+$/, '');
+    return trimmed === '' || trimmed === '.' ? '' : trimmed + '/';
 }
 
 export interface RemoteDiscoveryResult {
@@ -137,12 +157,14 @@ export async function discoverRemotePlugins(repo: string): Promise<RemoteDiscove
     const plugins: PluginInfo[] = [];
     let dependencies: string[] = [];
 
+    let marketplaceName: string | undefined;
     let pluginEntries: Array<{ name: string; description: string; version: string; source: string; mcpField?: PluginJson['mcpServers']; mcpFieldChecked?: boolean }> = [];
 
     try {
         const marketplaceContent = await fetchFileContent(repo, '.claude-plugin/marketplace.json');
         const marketplace: MarketplaceJson = JSON.parse(marketplaceContent);
         const normalized = normalizeMarketplaceJson(marketplace);
+        marketplaceName = normalized.name;
         pluginEntries = normalized.plugins;
         dependencies = [
             ...extractDependencies(marketplace),
@@ -170,7 +192,7 @@ export async function discoverRemotePlugins(repo: string): Promise<RemoteDiscove
     }
 
     for (const entry of pluginEntries) {
-        const basePath = entry.source === './' ? '' : entry.source.replace(/\/$/, '') + '/';
+        const basePath = normalizePluginBasePath(entry.source);
 
         // Try to read plugin.json to get mcpServers config if not already checked
         if (!entry.mcpField && !entry.mcpFieldChecked) {
@@ -261,6 +283,8 @@ export async function discoverRemotePlugins(repo: string): Promise<RemoteDiscove
             mcpServers: mcpServers.length > 0 ? mcpServers : undefined,
             marketplace: repo,
             source: 'remote',
+            sourcePath: basePath,
+            marketplaceName,
         });
     }
 

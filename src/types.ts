@@ -50,6 +50,17 @@ export interface PluginInfo {
     mcpServers?: McpServerInfo[];
     marketplace: string;
     source: SkillSource;
+    /**
+     * Repo-relative directory holding this plugin, with a trailing slash.
+     * Empty string for a plugin at the repo root. Remote plugins only.
+     */
+    sourcePath?: string;
+    /**
+     * The marketplace's declared `name` from marketplace.json. Claude Code keys its
+     * plugin cache and registry on this name rather than on the repo slug, so it is
+     * required to install into a directory Claude recognises.
+     */
+    marketplaceName?: string;
 }
 
 export interface MarketplaceInfo {
