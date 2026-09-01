@@ -3,6 +3,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { SkillImportState } from './types';
 import { getLogger } from './logger';
+import { isFileNotFound } from './fsErrors';
 
 const USER_MANIFEST_FILENAME = 'copilot-skill-bridge.json';
 
@@ -23,7 +24,11 @@ export async function loadUserManifest(): Promise<UserManifest> {
         const raw = await vscode.workspace.fs.readFile(getUserManifestUri());
         return JSON.parse(Buffer.from(raw).toString('utf-8')) as UserManifest;
     } catch (err) {
-        getLogger().debug('userManifest.loadUserManifest: empty manifest fallback', err);
+        // A missing file is the normal state before the first user-scope import.
+        // Anything else (corrupt JSON, permissions) is a real problem worth surfacing.
+        if (!isFileNotFound(err)) {
+            getLogger().warn('userManifest.loadUserManifest: unreadable manifest, using empty fallback', err);
+        }
         return createEmptyUserManifest();
     }
 }

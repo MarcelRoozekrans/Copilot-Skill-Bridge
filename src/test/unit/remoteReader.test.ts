@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { buildGitHubApiUrl, parseGitHubContentsResponse, buildRemoteSkillInfo, normalizeMarketplaceJson, extractDependencies, parseGitHubRepoFromUrl, GitHubApiError } from '../../remoteReader';
+import { buildGitHubApiUrl, parseGitHubContentsResponse, buildRemoteSkillInfo, normalizeMarketplaceJson, extractDependencies, parseGitHubRepoFromUrl, normalizePluginBasePath, GitHubApiError } from '../../remoteReader';
 
 describe('buildGitHubApiUrl', () => {
     it('should build correct contents API URL', () => {
@@ -219,5 +219,52 @@ describe('GitHubApiError', () => {
     it('should not flag 500 as requiring auth', () => {
         const err = new GitHubApiError(500, 'Internal Server Error');
         assert.strictEqual(err.requiresAuth, false);
+    });
+});
+
+describe('normalizePluginBasePath', () => {
+    it('should return empty string for ./', () => {
+        assert.strictEqual(normalizePluginBasePath('./'), '');
+    });
+
+    it('should return empty string for .', () => {
+        assert.strictEqual(normalizePluginBasePath('.'), '');
+    });
+
+    it('should return empty string for an empty source', () => {
+        assert.strictEqual(normalizePluginBasePath(''), '');
+    });
+
+    it('should strip the leading ./ and add a trailing slash', () => {
+        assert.strictEqual(normalizePluginBasePath('./plugins/pre-push-review'), 'plugins/pre-push-review/');
+    });
+
+    it('should keep a bare path and add a trailing slash', () => {
+        assert.strictEqual(normalizePluginBasePath('plugins/a11y-audit'), 'plugins/a11y-audit/');
+    });
+
+    it('should collapse a duplicate trailing slash', () => {
+        assert.strictEqual(normalizePluginBasePath('./plugins/x//'), 'plugins/x/');
+    });
+
+    it('should strip a leading absolute slash', () => {
+        assert.strictEqual(normalizePluginBasePath('/plugins/x'), 'plugins/x/');
+    });
+});
+
+describe('normalizeMarketplaceJson marketplace name', () => {
+    it('should expose the top-level marketplace name', () => {
+        const result = normalizeMarketplaceJson({ name: 'superpowers-extensions', plugins: [] });
+        assert.strictEqual(result.name, 'superpowers-extensions');
+    });
+
+    it('should expose a nested marketplace name', () => {
+        const result = normalizeMarketplaceJson({ marketplace: { name: 'toolkit', plugins: [] } });
+        assert.strictEqual(result.name, 'toolkit');
+    });
+
+    it('should leave the name undefined when absent', () => {
+        const result = normalizeMarketplaceJson({ plugins: [] });
+        assert.strictEqual(result.name, undefined);
     });
 });

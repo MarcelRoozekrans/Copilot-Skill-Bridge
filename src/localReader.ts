@@ -4,6 +4,7 @@ import * as path from 'path';
 import { SkillInfo, PluginInfo, PluginJson, McpServerInfo, ClaudeMcpServerConfig, CompanionFile } from './types';
 import { parseSkillFrontmatter } from './parser';
 import { getLogger } from './logger';
+import { isFileNotFound } from './fsErrors';
 
 export function resolveClaudeCachePath(configPath: string): string {
     if (configPath.startsWith('~')) {
@@ -82,7 +83,10 @@ export async function discoverLocalPlugins(cachePath: string): Promise<PluginInf
     try {
         marketplaceDirs = await vscode.workspace.fs.readDirectory(cacheUri);
     } catch (err) {
-        getLogger().debug('localReader.discoverLocalPlugins: cache directory not readable', err);
+        // No cache directory at all just means Claude Code has no plugins installed.
+        if (!isFileNotFound(err)) {
+            getLogger().warn('localReader.discoverLocalPlugins: cache directory not readable', err);
+        }
         return plugins;
     }
 
