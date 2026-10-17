@@ -16,3 +16,6 @@ commitlint.config.js
 release-please-config.json
 .release-please-manifest.json
 media/logo.svg
+coverage/**
+.c8rc.json
+codecov.yml

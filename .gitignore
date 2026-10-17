@@ -4,3 +4,6 @@ out/
 *.vsix
 .claude/
 .worktrees/
+
+# Coverage report (c8)
+coverage/
