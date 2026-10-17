@@ -9,6 +9,9 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write   # Codecov upload via OIDC, no token secret
 
     steps:
       - uses: actions/checkout@v7
@@ -27,7 +30,17 @@ jobs:
         run: npm run lint
 
       - name: Unit tests
-        run: npm run test:unit
+        # c8 measures the unit tests through the tsc source maps; .c8rc.json writes lcov.
+        run: npm run test:coverage
+
+      - name: Upload coverage to Codecov
+        if: '!cancelled()'
+        uses: codecov/codecov-action@v5
+        with:
+          use_oidc: true
+          files: coverage/lcov.info
+          disable_search: true   # only the file above, not every report the search finds
+          fail_ci_if_error: false
 
       - name: Integration tests
         run: xvfb-run -a npm run test:integration

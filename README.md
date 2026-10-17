@@ -1,5 +1,6 @@
 # Copilot Skill Bridge
 
+[![codecov](https://codecov.io/gh/MarcelRoozekrans/Copilot-Skill-Bridge/graph/badge.svg)](https://codecov.io/gh/MarcelRoozekrans/Copilot-Skill-Bridge)
 [![GitHub Sponsors](https://img.shields.io/github/sponsors/MarcelRoozekrans?style=flat&logo=githubsponsors&color=ea4aaa&label=Sponsor)](https://github.com/sponsors/MarcelRoozekrans)
 
 
