@@ -76,7 +76,7 @@ Override the path entirely with `copilotSkillBridge.skillsPath` (supports `~` ex
 | `copilotSkillBridge.skillsScope` | `string` | `"user"` | Where to install skills: `user` (`~/.claude/skills`, clean repo) or `workspace` (`.github/skills`, committed) |
 | `copilotSkillBridge.skillsPath` | `string` | `""` | Override the skills install path. Empty = scope default. Supports `~` expansion |
 | `copilotSkillBridge.generateRegistry` | `boolean` | `true` | Add skill registry to copilot-instructions.md |
-| `copilotSkillBridge.useLmConversion` | `boolean` | `true` | Use Copilot Language Model API for deeper semantic conversion |
+| `copilotSkillBridge.useLmConversion` | `boolean` | `false` | Use Copilot Language Model API for deeper semantic conversion |
 
 ## Commands
 
